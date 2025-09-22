@@ -29,9 +29,11 @@ exports.attendanceSummary = async (req, res, next) => {
 };
 
 // Now returns JSON with file path instead of streaming
+// controllers/reportController.js
 exports.exportAnnualRecords = async (req, res, next) => {
   try {
-    await reportService.exportAnnualRecords(req, res, next);
+    const result = await reportService.exportAnnualRecords();
+    return res.success(result, 'Annual records exported successfully');
   } catch (err) {
     return next(err);
   }
