@@ -264,10 +264,10 @@ exports.getAnnualRecords = async ({ page = 1, limit = 10 }) => {
   };
 };
 
-exports.exportAnnualRecords = async () => {
+exports.exportAnnualRecords = async (req) => {
   const data = await exports.getAnnualRecords({ page: 1, limit: 1000 });
   const filename = generateFileName('annual-report');
-  const fileInfo = await exportToExcel(data, filename);
+  const fileInfo = await exportToExcel(req, data, filename);
   return {
     message: 'Annual report generated successfully',
     downloadUrl: fileInfo.fullPath,

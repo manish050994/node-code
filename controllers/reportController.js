@@ -32,7 +32,7 @@ exports.attendanceSummary = async (req, res, next) => {
 // controllers/reportController.js
 exports.exportAnnualRecords = async (req, res, next) => {
   try {
-    const result = await reportService.exportAnnualRecords();
+    const result = await reportService.exportAnnualRecords(req);
     return res.success(result, 'Annual records exported successfully');
   } catch (err) {
     return next(err);

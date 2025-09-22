@@ -25,11 +25,12 @@ class ExcelExporter {
       : `${prefix}-${time}.xlsx`;
   }
 
-  exportToExcel(data, filename = null) {
+  exportToExcel(req, data, filename = null) {
     try {
       console.log('🔄 Starting Excel generation...');
       
       const workbook = XLSX.utils.book_new();
+      const host = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3000}`;
       let finalFilename = filename || this.generateFileName('report');
       const filePath = path.join(this.exportsDir, finalFilename);
 
@@ -59,7 +60,7 @@ class ExcelExporter {
         filename: finalFilename,
         path: filePath,
         // In exportToExcel, fullPath:
-        fullPath: `http://localhost:${process.env.PORT || 3000}/exports/${finalFilename}`,
+        fullPath: `${host}/exports/${finalFilename}`,
         size: stats.size,
         generatedAt: new Date().toISOString()
       };
