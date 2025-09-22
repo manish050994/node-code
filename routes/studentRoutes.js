@@ -1,14 +1,17 @@
+// routes\studentRoutes.js (modified: added bulk, idcard, featureAuthorize)
 const express = require('express');
 const router = express.Router();
-const { createStudent, getStudents, getStudent, updateStudent, deleteStudent } = require('../controllers/studentController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+const { createStudent, getStudents, getStudent, updateStudent, deleteStudent, bulkCreateStudents, generateIdCard } = require('../controllers/studentController');
+const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
+const upload = require('../middlewares/multer');
 
 
-router.get('/', protect, getStudents);
-router.post('/', protect, authorize('collegeadmin','superadmin'), createStudent);
-router.get('/:id', protect, getStudent);
-router.put('/:id', protect, authorize('collegeadmin','superadmin'), updateStudent);
-router.delete('/:id', protect, authorize('collegeadmin','superadmin'), deleteStudent);
-
+router.get('/', protect,featureAuthorize('studentManagement'), getStudents);
+router.post('/', protect, authorize('collegeadmin'), featureAuthorize('studentManagement'), createStudent);
+router.post('/bulk', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), upload.single('file'), bulkCreateStudents);
+router.get('/:id', protect,featureAuthorize('studentManagement'), getStudent);
+router.put('/:id', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), updateStudent);
+router.delete('/:id', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), deleteStudent);
+router.get('/:id/idcard', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), generateIdCard);
 
 module.exports = router;

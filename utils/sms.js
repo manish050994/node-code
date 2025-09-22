@@ -1,4 +1,11 @@
+// utils\sms.js (updated: placeholder for twilio)
+const twilio = require('twilio');
+const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+
 exports.sendSms = async ({ to, text }) => {
-// implement with Twilio or other provider
-console.log('sendSms called', { to, text });
+  await client.messages.create({
+    body: text,
+    from: process.env.TWILIO_PHONE,
+    to,
+  });
 };

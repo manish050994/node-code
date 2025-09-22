@@ -1,25 +1,38 @@
-const Course = require('../models/Course');
+// controllers\courseController.js (unchanged, but service updated for links)
+const courseService = require('../services/courseService');
 
-
-exports.createCourse = async (req, res) => {
-const c = await Course.create(req.body);
-res.json(c);
+exports.createCourse = async (req, res, next) => {
+  try {
+    const c = await courseService.createCourse(req.body, req.user.collegeId._id);
+    return res.success(c, 'Course created');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.getCourses = async (req, res) => {
-const list = await Course.find().populate('subjects');
-res.json(list);
+exports.getCourses = async (req, res, next) => {
+  try {
+    const list = await courseService.getCourses(req.user.collegeId._id);
+    return res.success(list, 'Courses fetched');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.updateCourse = async (req, res) => {
-const c = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
-res.json(c);
+exports.updateCourse = async (req, res, next) => {
+  try {
+    const c = await courseService.updateCourse({ id: req.params.id, payload: req.body });
+    return res.success(c, 'Course updated');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.deleteCourse = async (req, res) => {
-await Course.findByIdAndDelete(req.params.id);
-res.json({ message: 'Deleted' });
+exports.deleteCourse = async (req, res, next) => {
+  try {
+    const result = await courseService.deleteCourse({ id: req.params.id });
+    return res.success(result, 'Course deleted');
+  } catch (err) {
+    return next(err);
+  }
 };

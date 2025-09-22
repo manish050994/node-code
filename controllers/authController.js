@@ -1,27 +1,67 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const config = require('../config/auth');
-const User = require('../models/User');
-const College = require('../models/College');
+// controllers\authController.js (modified: added forgot, reset, enable2FA, verify2FA)
+const authService = require('../services/authService');
 
-
-exports.registerSuperAdmin = async (req, res) => {
-const { name, email, password ,role} = req.body;
-const hashed = await bcrypt.hash(password, 10);
-const user = await User.create({ name, email, password: hashed, role: role });
-res.json({ id: user._id, email: user.email });
+exports.registerSuperAdmin = async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body;
+    const data = await authService.registerSuperAdmin({ name, email, password, role });
+    return res.success(data, 'User registered');
+  } catch (err) {
+    return next(err);
+  }
 };
 
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password, collegeCode } = req.body;
+    const data = await authService.login({ email, password, collegeCode });
+    return res.success(data, 'Login successful');
+  } catch (err) {
+    return next(err);
+  }
+};
 
-exports.login = async (req, res) => {
-const { email, password, collegeCode } = req.body;
-const user = await User.findOne({ email }).populate('collegeId');
-if (!user) return res.status(404).json({ message: 'User not found' });
-const match = await bcrypt.compare(password, user.password);
-if (!match) return res.status(401).json({ message: 'Invalid credentials' });
-if (user.role === 'collegeadmin' && user.collegeId && user.collegeId.code !== collegeCode) {
-return res.status(403).json({ message: 'Invalid college code' });
-}
-const token = jwt.sign({ id: user._id, role: user.role, collegeId: user.collegeId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
-res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    await authService.forgotPassword(req.body.email);
+    return res.success(null, 'Email sent');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.resetPassword = async (req, res, next) => {
+  try {
+    await authService.resetPassword(req.params.token, req.body.password);
+    return res.success(null, 'Password reset');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.enable2FA = async (req, res, next) => {
+  try {
+    const qr = await authService.enable2FA(req.user._id);
+    return res.success(qr, '2FA enabled');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.verify2FA = async (req, res, next) => {
+  try {
+    const data = await authService.verify2FA(req.body.tempToken, req.body.otp);
+    return res.success(data, '2FA verified');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.disable2FA = async (req, res, next) => {
+  try {
+    const result = await authService.disable2FA(req.user._id);
+    return res.success(result, '2FA disabled');
+  } catch (err) {
+    return next(err);
+  }
 };

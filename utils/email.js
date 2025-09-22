@@ -1,4 +1,19 @@
+// utils\email.js (updated: actual nodemailer)
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
 exports.sendEmail = async ({ to, subject, text }) => {
-// implement with nodemailer or third-party provider
-console.log('sendEmail called', { to, subject, text });
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to,
+    subject,
+    text,
+  });
 };

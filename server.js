@@ -1,3 +1,4 @@
+// server.js (modified: added new routes, multer)
 require('dotenv').config();
 require('express-async-errors');
 const express = require('express');
@@ -5,7 +6,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
-
 
 const authRoutes = require('./routes/authRoutes');
 const collegeRoutes = require('./routes/collegeRoutes');
@@ -16,21 +16,27 @@ const subjectRoutes = require('./routes/subjectRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const feeRoutes = require('./routes/feeRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const leaveRoutes = require('./routes/leaveRoutes');
+const teacherLeaveRoutes = require('./routes/teacherLeaveRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const logsRoutes = require('./routes/logsRoutes');
-
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const parentRoutes = require('./routes/parentRoutes');
+const assignmentRoutes = require('./routes/assignmentRoutes');
+const markRoutes = require('./routes/markRoutes');
+const timetableRoutes = require('./routes/timetableRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const studentLeaveRoutes = require('./routes/studentLeaveRoutes');
 
 const errorHandler = require('./middlewares/errorHandler');
+const responseFormatter = require('./middlewares/responseFormatter');
 const { connectDB } = require('./config/db');
-
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(responseFormatter);
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -42,22 +48,26 @@ app.use('/api/subjects', subjectRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/leaves', leaveRoutes);
+app.use('/api/teacher-leaves', teacherLeaveRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/logs', logsRoutes);
-
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/parents', parentRoutes);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/marks', markRoutes);
+app.use('/api/timetables', timetableRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/student-leaves', studentLeaveRoutes);
 
 // Error handler
 app.use(errorHandler);
 
-
 const PORT = process.env.PORT || 3002;
 
-
 connectDB()
-.then(() => {
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-})
-.catch((err) => {
-console.error('Failed to start server', err);
-});
+  .then(() => {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch((err) => {
+    console.error('Failed to start server', err);
+  });

@@ -1,25 +1,38 @@
-const Subject = require('../models/Subject');
+// controllers\subjectController.js (unchanged)
+const subjectService = require('../services/subjectService');
 
-
-exports.createSubject = async (req, res) => {
-const s = await Subject.create(req.body);
-res.json(s);
+exports.createSubject = async (req, res, next) => {
+  try {
+    const s = await subjectService.createSubject(req.body, req.user.collegeId._id);
+    return res.success(s, 'Subject created');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.getSubjects = async (req, res) => {
-const list = await Subject.find();
-res.json(list);
+exports.getSubjects = async (req, res, next) => {
+  try {
+    const list = await subjectService.getSubjects(req.user.collegeId._id);
+    return res.success(list, 'Subjects fetched');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.updateSubject = async (req, res) => {
-const s = await Subject.findByIdAndUpdate(req.params.id, req.body, { new: true });
-res.json(s);
+exports.updateSubject = async (req, res, next) => {
+  try {
+    const s = await subjectService.updateSubject({ id: req.params.id, payload: req.body });
+    return res.success(s, 'Subject updated');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.deleteSubject = async (req, res) => {
-await Subject.findByIdAndDelete(req.params.id);
-res.json({ message: 'Deleted' });
+exports.deleteSubject = async (req, res, next) => {
+  try {
+    const result = await subjectService.deleteSubject({ id: req.params.id });
+    return res.success(result, 'Subject deleted');
+  } catch (err) {
+    return next(err);
+  }
 };

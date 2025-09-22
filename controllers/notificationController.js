@@ -1,19 +1,21 @@
-const Notification = require('../models/Notification');
-const { sendEmail } = require('../utils/email');
-const { sendSms } = require('../utils/sms');
+// controllers\notificationController.js (unchanged, service updated for targets)
+const notificationService = require('../services/notificationService');
 
-
-exports.createNotification = async (req, res) => {
-const payload = req.body;
-const n = await Notification.create({ ...payload, sentAt: new Date(), collegeId: req.user?.collegeId });
-// simple channel dispatch
-if (payload.channels?.includes('email')) sendEmail({ to: payload.to || 'all', subject: payload.title, text: payload.message });
-if (payload.channels?.includes('sms')) sendSms({ to: payload.to || 'all', text: payload.message });
-res.json(n);
+exports.createNotification = async (req, res, next) => {
+  try {
+    const payload = req.body;
+    const n = await notificationService.createNotification({ payload, actor: req.user.email, collegeId: req.user.collegeId._id });
+    return res.success(n, 'Notification created');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.getNotifications = async (req, res) => {
-const list = await Notification.find().sort({ sentAt: -1 });
-res.json(list);
+exports.getNotifications = async (req, res, next) => {
+  try {
+    const list = await notificationService.getNotifications(req.user.collegeId._id);
+    return res.success(list, 'Notifications fetched');
+  } catch (err) {
+    return next(err);
+  }
 };

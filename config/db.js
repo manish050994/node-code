@@ -1,11 +1,21 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
+const config = require('./config.js')[process.env.NODE_ENV || 'development'];
 
+const sequelize = new Sequelize(config.database, config.username, config.password, {
+  host: config.host,
+  port: config.port,
+  dialect: config.dialect,
+  logging: config.logging ? console.log : false,
+});
 
 async function connectDB() {
-const uri =  'mongodb://localhost:27017';
-await mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-console.log('MongoDB connected');
+  try {
+    await sequelize.authenticate();
+    console.log('PostgreSQL connected');
+  } catch (error) {
+    console.error('Unable to connect to PostgreSQL:', error);
+    process.exit(1);
+  }
 }
 
-
-module.exports = { connectDB };
+module.exports = { sequelize, connectDB };

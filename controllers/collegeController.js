@@ -1,61 +1,63 @@
-const College = require('../models/College');
-const Log = require('../models/Logs');
+// controllers\collegeController.js (modified: added toggleFeature)
+const collegeService = require('../services/collegeService');
 
-
-exports.addCollege = async (req, res) => {
-const { name, code, address } = req.body;
-const college = await College.create({ name, code, address });
-await Log.create({ actor: req.user?.email || 'system', action: 'Added college', target: college.name, collegeId: college._id });
-res.json(college);
+exports.addCollege = async (req, res, next) => {
+  try {
+    const { name, code, address, admin } = req.body;
+    const college = await collegeService.addCollege({ name, code, address, admin, actor: req.user.email });
+    return res.success(college, 'College added');
+  } catch (err) {
+    return next(err);
+  }
 };
 
-
-exports.updateCollege = async (req, res) => {
-const { id } = req.params;
-const updates = req.body;
-const college = await College.findByIdAndUpdate(id, updates, { new: true });
-res.json(college);
-};
-
-
-exports.toggleCollege = async (req, res) => {
-const { id } = req.params;
-const college = await College.findById(id);
-college.status = !college.status;
-await college.save();
-await Log.create({ actor: req.user?.email || 'system', action: college.status ? 'Enabled college' : 'Disabled college', target: college.name, collegeId: college._id });
-res.json(college);
-};
-
-
-exports.listColleges = async (req, res) => {
-const list = await College.find();
-res.json(list);
-};
-
-
-exports.deleteCollege = async (req, res) => {
+exports.updateCollege = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const updates = req.body;
+    const college = await collegeService.updateCollege({ id, updates });
+    return res.success(college, 'College updated');
+  } catch (err) {
+    return next(err);
+  }
+};
 
-    // कॉलेज find करो
-    const college = await College.findByIdAndDelete(id);
+exports.toggleCollege = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const college = await collegeService.toggleCollege({ id, actor: req.user.email });
+    return res.success(college, 'College toggled');
+  } catch (err) {
+    return next(err);
+  }
+};
 
-    if (!college) {
-      return res.status(404).json({ message: "College not found" });
-    }
+exports.listColleges = async (req, res, next) => {
+  try {
+    const { page, limit } = req.query; // Extract page and limit from query params
+    const list = await collegeService.listColleges({ page: parseInt(page), limit: parseInt(limit) });
+    return res.success(list, 'Colleges listed');
+  } catch (err) {
+    return next(err);
+  }
+};
 
-    // Log entry create करो
-    await Log.create({
-      actor: req.user?.email || "system",
-      action: "Deleted college",
-      target: college.name,
-      collegeId: college._id,
-    });
+exports.deleteCollege = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const college = await collegeService.deleteCollege({ id, actor: req.user.email });
+    return res.success({ message: 'College deleted successfully', college }, 'College deleted');
+  } catch (err) {
+    return next(err);
+  }
+};
 
-    res.json({ message: "College deleted successfully", college });
-  } catch (error) {
-    console.error("Error deleting college:", error);
-    res.status(500).json({ message: "Internal server error" });
+exports.toggleFeature = async (req, res, next) => {
+  try {
+    const { id, feature } = req.params;
+    const college = await collegeService.toggleFeature({ id, feature });
+    return res.success(college, 'Feature toggled');
+  } catch (err) {
+    return next(err);
   }
 };

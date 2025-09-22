@@ -1,0 +1,45 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+
+# IDE files
+.vscode/
+.idea/
+
+# Database files (if any local SQLite or dump)
+*.sqlite
+*.db
+*.sql
+
+# Uploads / attachments (optional)
+uploads/
+exports/
+
+
+!exports/.gitkeep
+
+# Coverage reports
+coverage/

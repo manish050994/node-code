@@ -1,14 +1,14 @@
-
-const mongoose = require('mongoose');
-const teacherSchema = new mongoose.Schema({
-name: { type: String, required: true },
-employeeId: { type: String, required: true, unique: true },
-email: String,
-subjects: [String],
-groups: [String],
-collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
-createdAt: { type: Date, default: Date.now },
-});
-
-
-module.exports = mongoose.model('Teacher', teacherSchema);
+module.exports = (sequelize, DataTypes) => {
+  const Teacher = sequelize.define('Teacher', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    name: { type: DataTypes.STRING, allowNull: false },
+    employeeId: { type: DataTypes.STRING, allowNull: false, unique: true },
+    email: { type: DataTypes.STRING },
+    groups: { type: DataTypes.ARRAY(DataTypes.STRING) },
+    collegeId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Colleges', key: 'id' } },
+  }, {
+    timestamps: true, // Handles createdAt and updatedAt automatically
+    tableName: 'Teachers',
+  });
+  return Teacher;
+};
