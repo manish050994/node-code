@@ -4,9 +4,8 @@ const router = express.Router();
 const { createNotification, getNotifications } = require('../controllers/notificationController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
-router.use(featureAuthorize('notification'));
 
-router.get('/', protect, getNotifications);
-router.post('/', protect, authorize('collegeadmin','superadmin'), createNotification);
+router.get('/', protect,featureAuthorize('notification'), getNotifications);
+router.post('/', protect, authorize('collegeadmin','superadmin'),featureAuthorize('notification'), createNotification);
 
 module.exports = router;

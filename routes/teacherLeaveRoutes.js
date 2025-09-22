@@ -4,10 +4,9 @@ const router = express.Router();
 const { requestLeave, listLeaves, setStatus } = require('../controllers/teacherLeaveController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
-router.use(featureAuthorize('leave'));
 
-router.post('/', protect, authorize('teacher'), requestLeave);
-router.get('/', protect, authorize('collegeadmin','superadmin'), listLeaves);
-router.patch('/:id/status', protect, authorize('collegeadmin','superadmin'), setStatus);
+router.post('/', protect, authorize('teacher'), featureAuthorize('leave'), requestLeave);
+router.get('/', protect, authorize('collegeadmin','superadmin'), featureAuthorize('leave'), listLeaves);
+router.patch('/:id/status', protect, authorize('collegeadmin','superadmin'), featureAuthorize('leave'), setStatus);
 
 module.exports = router;

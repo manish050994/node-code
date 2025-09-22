@@ -4,9 +4,8 @@ const router = express.Router();
 const { addMark, getMarks } = require('../controllers/markController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
-router.use(featureAuthorize('assessment'));
 
-router.post('/', protect, authorize('teacher'), addMark);
-router.get('/', protect, authorize('teacher', 'student', 'parent'), getMarks);
+router.post('/', protect, authorize('teacher'),featureAuthorize('assessment'), addMark);
+router.get('/', protect, authorize('teacher', 'student', 'parent'),featureAuthorize('assessment'), getMarks);
 
 module.exports = router;

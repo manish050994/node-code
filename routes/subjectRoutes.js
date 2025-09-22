@@ -4,11 +4,10 @@ const router = express.Router();
 const { createSubject, getSubjects, updateSubject, deleteSubject } = require('../controllers/subjectController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
-router.use(featureAuthorize('courseManagement'));
 
-router.get('/', protect, getSubjects);
-router.post('/', protect, authorize('collegeadmin','superadmin'), createSubject);
-router.put('/:id', protect, authorize('collegeadmin','superadmin'), updateSubject);
-router.delete('/:id', protect, authorize('collegeadmin','superadmin'), deleteSubject);
+router.get('/', protect, featureAuthorize('courseManagement'), getSubjects);
+router.post('/', protect, authorize('collegeadmin','superadmin'), featureAuthorize('courseManagement'), createSubject);
+router.put('/:id', protect, authorize('collegeadmin','superadmin'), featureAuthorize('courseManagement'), updateSubject);
+router.delete('/:id', protect, authorize('collegeadmin','superadmin'), featureAuthorize('courseManagement'), deleteSubject);
 
 module.exports = router;
