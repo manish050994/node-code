@@ -1,3 +1,4 @@
+// services\courseService.js
 const db = require('../models');
 const ApiError = require('../utils/ApiError');
 
@@ -56,5 +57,54 @@ exports.deleteCourse = async ({ id }) => {
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to delete course: ${error.message}`);
+  }
+};
+
+
+exports.assignSubject = async (courseId, subjectId) => {
+  if (!courseId || !subjectId) throw ApiError.badRequest('courseId and subjectId required');
+  const t = await db.sequelize.transaction();
+  try {
+    const course = await db.Course.findOne({ where: { id: courseId }, transaction: t });
+    if (!course) throw ApiError.notFound('Course not found');
+    const subject = await db.Subject.findOne({ where: { id: subjectId }, transaction: t });
+    if (!subject) throw ApiError.notFound('Subject not found');
+
+    await db.CourseSubjects.upsert({ courseId, subjectId }, { transaction: t });
+    await t.commit();
+
+    return await db.Course.findOne({
+      where: { id: courseId },
+      include: [{ model: db.Subject, as: 'Subjects', through: { attributes: [] } }],
+    });
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to assign subject: ${error.message}`);
+  }
+};
+
+
+exports.assignSubjectsBulk = async (courseId, subjectIds = []) => {
+  if (!courseId || !subjectIds.length) throw ApiError.badRequest('courseId and subjectIds required');
+  const t = await db.sequelize.transaction();
+  try {
+    const course = await db.Course.findByPk(courseId, { transaction: t });
+    if (!course) throw ApiError.notFound('Course not found');
+
+    const assignments = subjectIds.map(id => ({ courseId, subjectId: id }));
+    await db.CourseSubjects.bulkCreate(assignments, {
+      ignoreDuplicates: true,
+      transaction: t
+    });
+
+    await t.commit();
+
+    return await db.Course.findOne({
+      where: { id: courseId },
+      include: [{ model: db.Subject, as: 'Subjects', through: { attributes: [] } }]
+    });
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to assign subjects: ${error.message}`);
   }
 };

@@ -4,12 +4,11 @@ const { exportToExcel } = require('../utils/excelExport');
 
 exports.markAttendance = async (req, res, next) => {
   try {
-    const { studentIds, date, status } = req.body; // Fixed: studentIds instead of studentId
+    const { date, attendances } = req.body;
     const attendance = await attendanceService.markAttendance({
-      studentIds,
+      attendances,
       date,
-      status,
-      collegeId: req.user.collegeId, // Fixed: req.user.collegeId instead of _id
+      collegeId: req.user.collegeId,
     });
     return res.success(attendance, 'Attendance marked');
   } catch (err) {

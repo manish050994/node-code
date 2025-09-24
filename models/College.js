@@ -14,6 +14,7 @@ module.exports = (sequelize, DataTypes) => {
         studentManagement: true,
         teacherManagement: true,
         courseManagement: true,
+        parentManagement: true,
         feeManagement: true,
         notification: true,
         leave: true,

@@ -1,3 +1,4 @@
+// services\teacherService.js
 const db = require('../models');
 const authService = require('./authService');
 const ApiError = require('../utils/ApiError');
@@ -159,5 +160,26 @@ exports.assignGroup = async (id, group) => {
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to assign group: ${error.message}`);
+  }
+};
+
+
+exports.assignCourse = async (id, courseId) => {
+  if (!courseId) throw ApiError.badRequest('courseId required');
+  const t = await db.sequelize.transaction();
+  try {
+    const teacher = await db.Teacher.findOne({ where: { id }, transaction: t });
+    if (!teacher) throw ApiError.notFound('Teacher not found');
+    const course = await db.Course.findOne({ where: { id: courseId }, transaction: t });
+    if (!course) throw ApiError.notFound('Course not found');
+    await db.CourseTeachers.upsert({ courseId, teacherId: id }, { transaction: t });
+    await t.commit();
+    return await db.Teacher.findOne({
+      where: { id },
+      include: [{ model: db.Course, as: 'Courses', through: { attributes: [] } }],
+    });
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to assign course: ${error.message}`);
   }
 };

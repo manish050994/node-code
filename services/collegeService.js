@@ -1,3 +1,4 @@
+// services\collegeService.js
 const db = require('../models');
 const authService = require('./authService');
 const ApiError = require('../utils/ApiError');

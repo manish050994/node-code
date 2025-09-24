@@ -9,7 +9,8 @@ const {
   updateTeacher, 
   deleteTeacher, 
   assignSubject, 
-  assignGroup 
+  assignGroup,
+  assignCourse
 } = require('../controllers/teacherController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
@@ -20,5 +21,6 @@ router.put('/:id', protect, authorize('collegeadmin', 'superadmin'), featureAuth
 router.delete('/:id', protect, authorize('collegeadmin', 'superadmin'), featureAuthorize('teacherManagement'), deleteTeacher);
 router.post('/:id/assign-subject', protect, authorize('collegeadmin'), featureAuthorize('teacherManagement'), assignSubject);
 router.post('/:id/assign-group', protect, authorize('collegeadmin'), featureAuthorize('teacherManagement'), assignGroup);
+router.post('/:id/assign-course', protect, authorize('collegeadmin'), featureAuthorize('teacherManagement'), assignCourse);
 
 module.exports = router;

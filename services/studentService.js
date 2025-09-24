@@ -148,7 +148,10 @@ exports.deleteStudent = async ({ id }) => {
 };
 
 exports.getIdCardHtml = async (id) => {
-  const student = await db.Student.findOne({ where: { id } });
+  const student = await db.Student.findOne({ 
+    where: { id },
+    include: [{ model: db.Course, as: 'Course' }]
+  });
   if (!student) throw ApiError.notFound('Student not found');
-  return `<div>ID Card: ${student.name} - Roll: ${student.rollNo}</div>`;
+  return `Name: ${student.name}\nRoll No: ${student.rollNo}\nCourse: ${student.Course.name}\nCollege ID: ${student.collegeId}`;
 };

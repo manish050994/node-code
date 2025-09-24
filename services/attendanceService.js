@@ -11,27 +11,21 @@ function normalizeDateToDay(dateInput) {
   return new Date(d.toISOString().slice(0, 10));
 }
 
-exports.markAttendance = async ({ studentIds, date, status, collegeId }) => {
-  if (!studentIds || !Array.isArray(studentIds) || !date || !status) {
-    throw ApiError.badRequest('studentIds (array), date, and status are required');
-  }
+exports.markAttendance = async ({ attendances, date, collegeId }) => {
+  if (!attendances || !Array.isArray(attendances) || !date) throw ApiError.badRequest('attendances array and date required');
   const day = normalizeDateToDay(date);
   const t = await sequelize.transaction();
   try {
-    const attendances = await Promise.all(studentIds.map(async (studentId) => {
+    const results = await Promise.all(attendances.map(async ({studentId, status}) => {
       return await db.Attendance.upsert({
-        studentId: parseInt(studentId), // Ensure integer
+        studentId: parseInt(studentId),
         date: day,
         status,
         collegeId,
-      }, {
-        transaction: t,
-        fields: ['status', 'collegeId'],
-        conflictFields: ['studentId', 'date'],
-      });
+      }, { transaction: t, conflictFields: ['studentId', 'date'] });
     }));
     await t.commit();
-    return attendances;
+    return results;
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to mark attendance: ${error.message}`);

@@ -19,8 +19,14 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,          
     modelName: 'CourseSubjects',
-    timestamps: false,
+    timestamps: true,
     tableName: 'CourseSubjects',
+    indexes: [
+        {
+          unique: true,
+          fields: ['courseId', 'subjectId'], // 👈 important
+        },
+      ],
   });
   return CourseSubjects;
 };

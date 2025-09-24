@@ -40,3 +40,28 @@ exports.deleteCourse = async (req, res, next) => {
     return next(err);
   }
 };
+
+exports.assignSubject = async (req, res, next) => {
+  try {
+    const courseId = parseInt(req.params.id);
+    const { subjectId } = req.body;
+    const c = await courseService.assignSubject(courseId, subjectId);
+    return res.success(c, 'Subject assigned to course');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.assignSubjectsBulk = async (req, res, next) => {
+  try {
+    const courseId = parseInt(req.params.id);
+    const { subjectIds } = req.body; // array of IDs
+    if (!Array.isArray(subjectIds) || !subjectIds.length)
+      throw new Error('subjectIds must be a non-empty array');
+
+    const c = await courseService.assignSubjectsBulk(courseId, subjectIds);
+    return res.success(c, 'Subject assigned to course');
+  } catch (err) {
+    return next(err);
+  }
+};

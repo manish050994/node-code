@@ -65,3 +65,12 @@ exports.assignGroup = async (req, res, next) => {
     return next(err);
   }
 };
+
+exports.assignCourse = async (req, res, next) => {
+  try {
+    const t = await teacherService.assignCourse(parseInt(req.params.id), req.body.courseId);
+    return res.success(t, 'Course assigned');
+  } catch (err) {
+    return next(err);
+  }
+};
