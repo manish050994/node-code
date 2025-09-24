@@ -20,8 +20,10 @@ module.exports = (sequelize, DataTypes) => {
     text: DataTypes.TEXT,
     submittedAt: DataTypes.DATE
   }, {
-    sequelize,
+    sequelize,          
     modelName: 'Submission',
+    timestamps: false,
+    tableName: 'Submission',
   });
   return Submission;
 };

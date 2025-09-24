@@ -1,12 +1,13 @@
 const db = require('../models');
 const ApiError = require('../utils/ApiError');
 
-exports.requestLeave = async (payload, teacherId) => {
+exports.requestLeave = async (payload, teacherId, collegeId) => {
   const t = await db.sequelize.transaction();
   try {
     const leave = await db.TeacherLeaveRequest.create({
       ...payload,
       teacherId,
+      collegeId,
       createdAt: new Date(),
     }, { transaction: t });
     await t.commit();
@@ -15,6 +16,18 @@ exports.requestLeave = async (payload, teacherId) => {
     await t.rollback();
     throw ApiError.badRequest(`Failed to request leave: ${error.message}`);
   }
+};
+
+exports.myLeaves = async (teacherId, { page = 1, limit = 10 } = {}) => {
+  const offset = (page - 1) * limit;
+  const { rows, count } = await db.TeacherLeaveRequest.findAndCountAll({
+    where: { teacherId },
+    include: [{ model: db.Teacher, as: 'Teacher' }],
+    offset,
+    limit,
+    order: [['createdAt', 'DESC']]
+  });
+  return { leaves: rows, total: count, page, limit };
 };
 
 exports.listLeaves = async (collegeId, { page = 1, limit = 10 }) => {

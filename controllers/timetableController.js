@@ -3,7 +3,7 @@ const timetableService = require('../services/timetableService');
 
 exports.createTimetable = async (req, res, next) => {
   try {
-    const t = await timetableService.createTimetable(req.body, req.user.collegeId._id);
+    const t = await timetableService.createTimetable(req.body, req.user.collegeId);
     return res.success(t, 'Timetable created');
   } catch (err) {
     return next(err);

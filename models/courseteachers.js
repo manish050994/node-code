@@ -17,8 +17,10 @@ module.exports = (sequelize, DataTypes) => {
     courseId: DataTypes.INTEGER,
     teacherId: DataTypes.INTEGER
   }, {
-    sequelize,
+    sequelize,          
     modelName: 'CourseTeachers',
+    timestamps: false,
+    tableName: 'CourseTeachers',
   });
   return CourseTeachers;
 };

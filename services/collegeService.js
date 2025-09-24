@@ -129,13 +129,25 @@ exports.toggleFeature = async ({ id, feature }) => {
   try {
     const college = await db.College.findOne({ where: { id }, transaction: t });
     if (!college) throw ApiError.notFound('College not found');
-    if (!college.features.hasOwnProperty(feature)) throw ApiError.badRequest('Invalid feature');
-    college.features[feature] = !college.features[feature];
-    await college.update({ features: college.features }, { transaction: t });
+
+    const features = { ...(college.features || {}) }; // safe clone
+
+    if (!Object.prototype.hasOwnProperty.call(features, feature)) {
+      throw ApiError.badRequest(`Invalid feature: ${feature}`);
+    }
+
+    // toggle
+    features[feature] = !features[feature];
+
+    // persist
+    await college.update({ features }, { transaction: t });
     await t.commit();
+
     return college;
   } catch (error) {
     await t.rollback();
-    throw ApiError.badRequest(`Failed to toggle feature: ${error.message}`);
+    // preserve original error type if possible
+    if (error instanceof ApiError) throw error;
+    throw ApiError.internal(`Failed to toggle feature: ${error.message}`);
   }
 };

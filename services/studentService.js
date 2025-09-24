@@ -41,6 +41,7 @@ exports.createStudent = async ({ payload, creator }) => {
 
 exports.bulkCreateStudents = (filePath, creator) => {
   if (!['collegeadmin'].includes(creator.role)) throw ApiError.forbidden('Not allowed');
+
   return new Promise((resolve, reject) => {
     const results = [];
     fs.createReadStream(filePath)
@@ -49,42 +50,45 @@ exports.bulkCreateStudents = (filePath, creator) => {
       .on('end', async () => {
         const t = await db.sequelize.transaction();
         try {
-          const students = await Promise.all(results.map(async (row) => {
+          const students = [];
+          for (const row of results) {
             if (!row.name || !row.rollNo || !row.email || !row.password) {
               throw ApiError.badRequest('CSV row missing required fields: name, rollNo, email, password');
             }
-            return await exports.createStudent({ 
-              payload: { 
-                ...row, 
-                courseId: row.courseId ? parseInt(row.courseId) : null 
-              }, 
-              creator 
+            // create user + student inside same transaction
+            const user = await authService.registerStudent({
+              name: row.name,
+              email: row.email.toLowerCase(),
+              password: row.password,
+              collegeId: creator.collegeId,
             }, { transaction: t });
-          }));
+
+            const student = await db.Student.create({
+              ...row,
+              courseId: row.courseId ? parseInt(row.courseId) : null,
+              collegeId: creator.collegeId,
+            }, { transaction: t });
+
+            await db.User.update({ studentId: student.id }, { where: { id: user.id }, transaction: t });
+            students.push(student);
+          }
+
           await t.commit();
-          // Clean up the uploaded file
-          fs.unlink(filePath, (err) => {
-            if (err) console.error('Failed to delete temp file:', err);
-          });
+          fs.unlink(filePath, () => {});
           resolve({ count: students.length });
         } catch (err) {
           await t.rollback();
-          // Clean up file on error
-          fs.unlink(filePath, (err) => {
-            if (err) console.error('Failed to delete temp file:', err);
-          });
+          fs.unlink(filePath, () => {});
           reject(ApiError.badRequest(`Failed to bulk create students: ${err.message}`));
         }
       })
       .on('error', (err) => {
-        // Clean up file on stream error
-        fs.unlink(filePath, (err) => {
-          if (err) console.error('Failed to delete temp file:', err);
-        });
+        fs.unlink(filePath, () => {});
         reject(ApiError.badRequest(`Failed to read CSV: ${err.message}`));
       });
   });
 };
+
 
 exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;

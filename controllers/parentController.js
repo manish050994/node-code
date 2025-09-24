@@ -3,7 +3,7 @@ const parentService = require('../services/parentService');
 
 exports.createParent = async (req, res, next) => {
   try {
-    const result = await parentService.createParent(req.body, req.user.collegeId._id);
+    const result = await parentService.createParent(req.body, req.user.collegeId);
     return res.success(result, 'Parent created and credentials sent');
   } catch (err) {
     return next(err);
@@ -12,7 +12,7 @@ exports.createParent = async (req, res, next) => {
 
 exports.getParents = async (req, res, next) => {
   try {
-    const list = await parentService.getParents(req.user.collegeId._id);
+    const list = await parentService.getParents(req.user.collegeId);
     return res.success(list, 'Parents fetched');
   } catch (err) {
     return next(err);

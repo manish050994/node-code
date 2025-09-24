@@ -3,7 +3,7 @@ const studentLeaveService = require('../services/studentLeaveService');
 
 exports.requestStudentLeave = async (req, res, next) => {
   try {
-    const l = await studentLeaveService.requestLeave(req.body, req.user.studentId, req.user.collegeId._id);
+    const l = await studentLeaveService.requestLeave(req.body, req.user.studentId, req.user.collegeId);
     return res.success(l, 'Leave requested');
   } catch (err) {
     return next(err);

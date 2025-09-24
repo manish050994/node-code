@@ -3,7 +3,7 @@ const feeService = require('../services/feeService');
 
 exports.createFee = async (req, res, next) => {
   try {
-    const f = await feeService.createFee(req.body, req.user.collegeId._id);
+    const f = await feeService.createFee(req.body, req.user.collegeId);
     return res.success(f, 'Fee created');
   } catch (err) {
     return next(err);
@@ -12,7 +12,7 @@ exports.createFee = async (req, res, next) => {
 
 exports.getFees = async (req, res, next) => {
   try {
-    const list = await feeService.getFees(req.user.collegeId._id);
+    const list = await feeService.getFees(req.user.collegeId);
     return res.success(list, 'Fees fetched');
   } catch (err) {
     return next(err);

@@ -3,7 +3,7 @@ const courseService = require('../services/courseService');
 
 exports.createCourse = async (req, res, next) => {
   try {
-    const c = await courseService.createCourse(req.body, req.user.collegeId._id);
+    const c = await courseService.createCourse(req.body, req.user.collegeId);
     return res.success(c, 'Course created');
   } catch (err) {
     return next(err);
@@ -12,7 +12,11 @@ exports.createCourse = async (req, res, next) => {
 
 exports.getCourses = async (req, res, next) => {
   try {
-    const list = await courseService.getCourses(req.user.collegeId._id);
+    const { page = 1, limit = 10 } = req.query;
+    const list = await courseService.getCourses(req.user.collegeId, { 
+      page: parseInt(page), 
+      limit: parseInt(limit) 
+    });
     return res.success(list, 'Courses fetched');
   } catch (err) {
     return next(err);

@@ -11,14 +11,24 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      TeacherSubjects.belongsTo(models.Teacher, { foreignKey: 'teacherId' });
+      TeacherSubjects.belongsTo(models.Subject, { foreignKey: 'subjectId' });
     }
   }
   TeacherSubjects.init({
     teacherId: DataTypes.INTEGER,
     subjectId: DataTypes.INTEGER
   }, {
-    sequelize,
+    sequelize,          
     modelName: 'TeacherSubjects',
+    timestamps: true,
+    tableName: 'TeacherSubjects',
+    indexes: [
+        {
+          unique: true,
+          fields: ['teacherId', 'subjectId'], // 👈 important
+        },
+      ],
   });
   return TeacherSubjects;
 };

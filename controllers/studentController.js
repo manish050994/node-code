@@ -25,7 +25,9 @@ exports.bulkCreateStudents = async (req, res, next) => {
 
 exports.getStudents = async (req, res, next) => {
   try {
-    const list = await studentService.getStudents({ q: req.query, collegeId: req.user.collegeId }); // Fixed: req.user.collegeId
+    const { page = 1, limit = 10 } = req.query;
+    const list = await studentService.getStudents({ q: req.query, collegeId: req.user.collegeId, page: parseInt(page), 
+      limit: parseInt(limit) }); // Fixed: req.user.collegeId
     return res.success(list, 'Students fetched');
   } catch (err) {
     return next(err);

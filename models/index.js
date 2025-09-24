@@ -130,38 +130,20 @@ db.StudentLeaveRequest.belongsTo(db.College, { foreignKey: 'collegeId', onDelete
 
 // Subject
 db.Subject.belongsTo(db.College, { foreignKey: 'collegeId', onDelete: 'CASCADE' });
-db.Subject.belongsTo(db.Teacher, { foreignKey: 'teacherId', onDelete: 'SET NULL' });
+db.Subject.belongsTo(db.Teacher, { foreignKey: 'teacherId', otherKey: 'teacherId', as: 'Teachers', onDelete: 'CASCADE' });
 db.Subject.belongsToMany(db.Course, { through: 'CourseSubjects', foreignKey: 'subjectId', onDelete: 'CASCADE' });
 db.Subject.hasMany(db.Mark, { foreignKey: 'subjectId', onDelete: 'RESTRICT' });
 db.Subject.hasMany(db.Timetable, { foreignKey: 'subjectId', onDelete: 'RESTRICT' });
 
 // Teacher
 db.Teacher.belongsTo(db.College, { foreignKey: 'collegeId', onDelete: 'CASCADE' });
-db.Teacher.belongsToMany(db.Subject, { through: 'TeacherSubjects', foreignKey: 'teacherId', onDelete: 'CASCADE' });
+db.Teacher.belongsToMany(db.Subject, { through: 'TeacherSubjects', foreignKey: 'teacherId', otherKey: 'subjectId', as: 'Subjects',  onDelete: 'CASCADE' });
 db.Teacher.belongsToMany(db.Course, { through: 'CourseTeachers', foreignKey: 'teacherId', onDelete: 'CASCADE' });
 db.Teacher.hasMany(db.Assignment, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Teacher.hasMany(db.Mark, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Teacher.hasMany(db.Timetable, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Teacher.hasMany(db.TeacherLeaveRequest, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 
-//TeacherSubject
-db.TeacherSubjects = sequelize.define('TeacherSubjects', {
-  teacherId: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false, 
-    references: { model: db.Teacher, key: 'id' },
-    onDelete: 'CASCADE',
-  },
-  subjectId: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false, 
-    references: { model: db.Subject, key: 'id' },
-    onDelete: 'CASCADE',
-  },
-}, { 
-  timestamps: false, 
-  tableName: 'TeacherSubjects' 
-});
 
 
 // TeacherLeaveRequest

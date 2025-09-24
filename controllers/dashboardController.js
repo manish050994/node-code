@@ -12,7 +12,7 @@ exports.getSuperAdminDashboard = async (req, res, next) => {
 
 exports.getCollegeAdminDashboard = async (req, res, next) => {
   try {
-    const data = await dashboardService.getCollegeAdminDashboard(req.user.collegeId._id);
+    const data = await dashboardService.getCollegeAdminDashboard(req.user.collegeId);
     return res.success(data, 'College Admin Dashboard');
   } catch (err) {
     return next(err);

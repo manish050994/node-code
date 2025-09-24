@@ -3,7 +3,7 @@ const subjectService = require('../services/subjectService');
 
 exports.createSubject = async (req, res, next) => {
   try {
-    const s = await subjectService.createSubject(req.body, req.user.collegeId._id);
+    const s = await subjectService.createSubject(req.body, req.user.collegeId);
     return res.success(s, 'Subject created');
   } catch (err) {
     return next(err);
@@ -12,7 +12,9 @@ exports.createSubject = async (req, res, next) => {
 
 exports.getSubjects = async (req, res, next) => {
   try {
-    const list = await subjectService.getSubjects(req.user.collegeId._id);
+    const { page = 1, limit = 10 } = req.query;
+    const list = await subjectService.getSubjects(req.user.collegeId, {page: parseInt(page), 
+      limit: parseInt(limit)});
     return res.success(list, 'Subjects fetched');
   } catch (err) {
     return next(err);
