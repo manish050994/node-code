@@ -36,7 +36,8 @@ app.use(cors());
 app.use(express.json());
 app.use(responseFormatter);
 app.use(morgan('dev'));
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve exports directory
 app.use('/exports', express.static(path.join(__dirname, 'exports')));
 
 // Routes

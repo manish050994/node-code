@@ -10,10 +10,12 @@ const {
   deleteTeacher, 
   assignSubject, 
   assignGroup,
-  assignCourse
+  assignCourse,
+  getSampleCsv
 } = require('../controllers/teacherController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
+router.get('/sample-csv', protect, authorize('collegeadmin'), featureAuthorize('teacherManagement'), getSampleCsv);
 router.get('/', protect, featureAuthorize('teacherManagement'), getTeachers);
 router.post('/', protect, authorize('collegeadmin', 'superadmin'), featureAuthorize('teacherManagement'), createTeacher);
 router.post('/bulk', protect, authorize('collegeadmin', 'superadmin'), featureAuthorize('teacherManagement'), upload.single('csvFile'), bulkCreateTeachers);

@@ -22,6 +22,7 @@ exports.addCollege = async ({ name, code, address, admin, actor }) => {
         teacherManagement: true,
         courseManagement: true,
         feeManagement: true,
+        parent: true,
         notification: true,
         leave: true,
         report: true,

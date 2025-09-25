@@ -1,6 +1,45 @@
 // controllers/attendanceController.js
+const ApiError = require('../utils/ApiError');
 const attendanceService = require('../services/attendanceService');
 const { exportToExcel } = require('../utils/excelExport');
+const { stringify } = require('csv-stringify');
+
+exports.getSampleCsv = async (req, res, next) => {
+  try {
+    const sampleData = [
+      {
+        studentId: 5,
+        date: '2025-09-22',
+        status: 'present',
+      },
+      {
+        studentId: 6,
+        date: '2025-09-22',
+        status: 'absent',
+      },
+    ];
+
+    const columns = [
+      'studentId',
+      'date',
+      'status',
+    ];
+
+    stringify(sampleData, {
+      header: true,
+      columns,
+    }, (err, output) => {
+      if (err) {
+        return next(ApiError.internal('Failed to generate sample CSV'));
+      }
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="attendance-sample.csv"');
+      res.send(output);
+    });
+  } catch (error) {
+    next(ApiError.internal('Failed to generate sample CSV'));
+  }
+};
 
 exports.markAttendance = async (req, res, next) => {
   try {

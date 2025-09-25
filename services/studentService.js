@@ -4,90 +4,185 @@ const authService = require('./authService');
 const ApiError = require('../utils/ApiError');
 const fs = require('fs');
 const csv = require('csv-parser');
+const parentService = require('./parentService');
+const bcrypt = require('bcryptjs');
+const { parseCsv } = require('../utils/csvParser');
+const { generateLoginId } = require('./userService');
+
 
 exports.createStudent = async ({ payload, creator }) => {
-  if (!['collegeadmin'].includes(creator.role)) throw ApiError.forbidden('Not allowed');
-  if (!payload.email || !payload.password) throw ApiError.badRequest('Email and password required');
   const t = await db.sequelize.transaction();
   try {
-    // Verify college exists
-    const college = await db.College.findOne({ where: { id: creator.collegeId }, transaction: t });
-    if (!college) throw ApiError.notFound('College not found');
+    const { parent, ...studentData } = payload;
+    if (!creator.collegeId) throw ApiError.badRequest('College ID required');
 
-    // Create user first (without studentId)
-    const user = await authService.registerStudent({
-      name: payload.name,
-      email: payload.email.toLowerCase(),
-      password: payload.password, // Use provided password
-      collegeId: creator.collegeId,
-    }, { transaction: t });
+    if (!studentData.email || !studentData.name || !studentData.rollNo || !studentData.courseId) {
+      throw ApiError.badRequest('Missing required student fields');
+    }
 
-    // Create student
-    const student = await db.Student.create({
-      ...payload,
-      collegeId: creator.collegeId,
-    }, { transaction: t });
+    const course = await db.Course.findOne({
+      where: { id: studentData.courseId, collegeId: creator.collegeId },
+      transaction: t,
+    });
+    if (!course) {
+      throw ApiError.badRequest(`Invalid courseId: ${studentData.courseId}`);
+    }
 
-    // Link student to user
-    await db.User.update({ studentId: student.id }, { where: { id: user.id }, transaction: t });
+    const studentLoginId = await generateLoginId(studentData.rollNo || studentData.name);
+    const parentLoginId = await generateLoginId(`${studentLoginId}p`);
+
+    const student = await db.Student.create(
+      { ...studentData, collegeId: creator.collegeId },
+      { transaction: t }
+    );
+
+    const hashedPassword = await bcrypt.hash(studentData.password || 'defaultPass123', 10);
+    await db.User.create(
+      {
+        loginId: studentLoginId,
+        name: studentData.name,
+        email: studentData.email,
+        password: hashedPassword,
+        role: 'student',
+        collegeId: creator.collegeId,
+        studentId: student.id,
+      },
+      { transaction: t }
+    );
+
+    if (parent && parent.name && parent.email) {
+      await parentService.createParent(
+        {
+          name: parent.name,
+          email: parent.email,
+          phone: parent.phone || null,
+          password: parent.password || 'defaultPass123',
+          loginId: parentLoginId,
+          studentId: student.id,
+          collegeId: creator.collegeId,
+        },
+        { transaction: t }
+      );
+    }
 
     await t.commit();
-    return { student, user }; // Return hashed password in user object
+
+    return await db.Student.findOne({
+      where: { id: student.id },
+      include: [
+        { model: db.Course, as: 'Course' },
+        { model: db.Parent, as: 'Parent' },
+        { model: db.User, as: 'User' },
+      ],
+    });
   } catch (error) {
-    await t.rollback();
+    if (!t.finished) await t.rollback();
     throw ApiError.badRequest(`Failed to create student: ${error.message}`);
   }
 };
 
-exports.bulkCreateStudents = (filePath, creator) => {
-  if (!['collegeadmin'].includes(creator.role)) throw ApiError.forbidden('Not allowed');
+exports.bulkCreateStudents = async (filePath, collegeId) => {
+  const created = [];
+  const failedRows = [];
 
-  return new Promise((resolve, reject) => {
-    const results = [];
+  const csvData = await new Promise((resolve, reject) => {
+    const rows = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        const t = await db.sequelize.transaction();
-        try {
-          const students = [];
-          for (const row of results) {
-            if (!row.name || !row.rollNo || !row.email || !row.password) {
-              throw ApiError.badRequest('CSV row missing required fields: name, rollNo, email, password');
-            }
-            // create user + student inside same transaction
-            const user = await authService.registerStudent({
-              name: row.name,
-              email: row.email.toLowerCase(),
-              password: row.password,
-              collegeId: creator.collegeId,
-            }, { transaction: t });
-
-            const student = await db.Student.create({
-              ...row,
-              courseId: row.courseId ? parseInt(row.courseId) : null,
-              collegeId: creator.collegeId,
-            }, { transaction: t });
-
-            await db.User.update({ studentId: student.id }, { where: { id: user.id }, transaction: t });
-            students.push(student);
-          }
-
-          await t.commit();
-          fs.unlink(filePath, () => {});
-          resolve({ count: students.length });
-        } catch (err) {
-          await t.rollback();
-          fs.unlink(filePath, () => {});
-          reject(ApiError.badRequest(`Failed to bulk create students: ${err.message}`));
-        }
-      })
-      .on('error', (err) => {
-        fs.unlink(filePath, () => {});
-        reject(ApiError.badRequest(`Failed to read CSV: ${err.message}`));
-      });
+      .on('data', (row) => rows.push(row))
+      .on('end', () => resolve(rows))
+      .on('error', reject);
   });
+
+  for (const [index, row] of csvData.entries()) {
+    const t = await db.sequelize.transaction();
+    try {
+      // Validate mandatory fields
+      if (!row.name || !row.email || !row.rollNo || !row.courseId) {
+        failedRows.push({ row: index + 1, reason: 'Missing required student fields' });
+        await t.rollback();
+        continue;
+      }
+
+      // Validate course
+      const course = await db.Course.findOne({ where: { id: row.courseId, collegeId }, transaction: t });
+      if (!course) {
+        failedRows.push({ row: index + 1, reason: `Invalid courseId: ${row.courseId}` });
+        await t.rollback();
+        continue;
+      }
+
+      // Generate login IDs
+      const studentLoginId = await generateLoginId(row.rollNo || row.name);
+      const parentLoginId = await generateLoginId(`${studentLoginId}p`);
+
+      // Create student first
+      const student = await db.Student.create(
+        {
+          name: row.name,
+          rollNo: row.rollNo,
+          courseId: row.courseId,
+          year: row.year || null,
+          section: row.section || null,
+          email: row.email,
+          collegeId,
+        },
+        { transaction: t }
+      );
+
+      // Create student user
+      const hashedPassword = await bcrypt.hash(row.password || 'defaultPass123', 10);
+      await db.User.create(
+        {
+          loginId: studentLoginId,
+          name: row.name,
+          email: row.email,
+          password: hashedPassword,
+          role: 'student',
+          collegeId,
+          studentId: student.id,
+        },
+        { transaction: t }
+      );
+
+      // Create parent only AFTER student is created
+      if ( row.parentName  && row.parentEmail) {
+        await parentService.createParent(
+          {
+            name: row.parentName,
+            email: row.parentEmail,
+            phone: row.parentPhone || null,
+            password: row.parentPassword  || 'defaultPass123',
+            loginId: parentLoginId,
+            studentId: student.id,
+            collegeId,
+          },
+          { transaction: t }
+        );
+      }
+
+      // Fetch student with relations
+      const newStudent = await db.Student.findOne({
+        where: { id: student.id },
+        include: [
+          { model: db.Course, as: 'Course' },
+          { model: db.Parent, as: 'Parent' },
+          { model: db.User, as: 'User' },
+        ],
+        transaction: t,
+      });
+
+      created.push(newStudent);
+      await t.commit();
+    } catch (err) {
+      if (!t.finished) await t.rollback();
+      failedRows.push({ row: index + 1, reason: err.message });
+    }
+  }
+
+  return { created, failedRows };
 };
+
 
 
 exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {

@@ -1,4 +1,49 @@
 const teacherService = require('../services/teacherService');
+const ApiError = require('../utils/ApiError');
+const { stringify } = require('csv-stringify');
+
+exports.getSampleCsv = async (req, res, next) => {
+  try {
+    const sampleData = [
+      {
+        name: 'Jane Smith',
+        loginId: 'jane.smith_teacher',
+        employeeId: 'T001',
+        email: 'jane.smith@example.com',
+        password: 'pass123',
+      },
+      {
+        name: 'Bob Johnson',
+        loginId: 'bob.johnson_teacher',
+        employeeId: 'T002',
+        email: 'bob.johnson@example.com',
+        password: 'pass123',
+      },
+    ];
+
+    const columns = [
+      'name',
+      'loginId',
+      'employeeId',
+      'email',
+      'password',
+    ];
+
+    stringify(sampleData, {
+      header: true,
+      columns,
+    }, (err, output) => {
+      if (err) {
+        return next(ApiError.internal('Failed to generate sample CSV'));
+      }
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="teachers-sample.csv"');
+      res.send(output);
+    });
+  } catch (error) {
+    next(ApiError.internal('Failed to generate sample CSV'));
+  }
+};
 
 exports.createTeacher = async (req, res, next) => {
   try {

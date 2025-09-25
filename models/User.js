@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     collegeId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Colleges', key: 'id' } },
     studentId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Students', key: 'id' } },
     teacherId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Teachers', key: 'id' } },
+    parentId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Parents', key: 'id' } },
     twoFactorEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
     twoFactorSecret: { type: DataTypes.STRING },
     resetPasswordToken: { type: DataTypes.STRING },

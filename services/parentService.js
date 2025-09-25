@@ -3,43 +3,63 @@ const db = require('../models');
 const authService = require('./authService');
 const ApiError = require('../utils/ApiError');
 const { sendEmail } = require('../utils/email');
+const bcrypt = require('bcryptjs');
 
-const generateTempPassword = () => Math.random().toString(36).slice(-8);
-
-exports.createParent = async (payload, collegeId) => {
-  const t = await db.sequelize.transaction();
+exports.createParent = async (parentData, options = {}) => {
+  const { transaction } = options;
   try {
-    const student = await db.Student.findOne({ where: { id: payload.studentId }, transaction: t });
-    if (!student) throw ApiError.notFound('Student not found');
-    const parent = await db.Parent.create({
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone,
-      studentId: payload.studentId,
-      collegeId,
-      createdAt: new Date(),
-    }, { transaction: t });
-    const tempPassword = generateTempPassword();
-    const user = await authService.registerParent({
-      name: payload.name,
-      email: payload.email.toLowerCase(),
-      password: tempPassword,
-      collegeId,
-      studentId: payload.studentId,
-    }, { transaction: t });
-    await db.Student.update({ parentId: parent.id }, { where: { id: payload.studentId }, transaction: t });
-    await sendEmail({
-      to: payload.email,
-      subject: 'Your Parent Portal Login',
-      text: `Email: ${payload.email}\nLogin ID: ${user.loginId}\nPassword: ${tempPassword}`,
+    const { name, email, phone, password, loginId, studentId, collegeId } = parentData;
+
+    if (!email || !collegeId) {
+      throw ApiError.badRequest('Missing required parent fields: email or collegeId');
+    }
+
+    // Find parent by email (unique in same college)
+    let parentUser = await db.User.findOne({
+      where: { email, role: 'parent', collegeId },
+      include: [{ model: db.Parent, as: 'Parent' }],
+      transaction,
     });
-    await t.commit();
-    return { parent, user };
+
+    let parent;
+    if (parentUser && parentUser.Parent) {
+      parent = parentUser.Parent;
+    } else {
+      parent = await db.Parent.create(
+        { name, email, phone: phone || null, collegeId },
+        { transaction }
+      );
+
+      const hashedPassword = await bcrypt.hash(password || 'defaultPass123', 10);
+      parentUser = await db.User.create(
+        {
+          loginId: loginId || (email.split('@')[0] + '_parent'),
+          name,
+          email,
+          password: hashedPassword,
+          role: 'parent',
+          collegeId,
+          parentId: parent.id,
+        },
+        { transaction }
+      );
+    }
+
+    // Link student to parent
+    if (studentId) {
+      const student = await db.Student.findByPk(studentId, { transaction });
+      if (!student) {
+        throw ApiError.badRequest(`Student with ID ${studentId} not found`);
+      }
+      await student.update({ parentId: parent.id }, { transaction });
+    }
+
+    return { parent, user: parentUser };
   } catch (error) {
-    await t.rollback();
-    throw ApiError.badRequest(`Failed to create parent: ${error.message}`);
+    throw ApiError.badRequest(`Failed to create/link parent: ${error.message}`);
   }
 };
+
 
 exports.getParents = async (collegeId, { page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;

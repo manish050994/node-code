@@ -173,7 +173,42 @@ exports.login = async ({ email, password, collegeCode }) => {
   }
   const tokenPayload = { id: user.id, role: user.role, collegeId: user.collegeId || null, loginId: user.loginId };
   const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
-  return { token, user: { id: user.id, name: user.name, role: user.role, loginId: user.loginId, collegeId: user.collegeId } };
+  
+  // Prepare user response
+  const responseUser = {
+    id: user.id,
+    name: user.name,
+    role: user.role,
+    loginId: user.loginId,
+    collegeId: user.collegeId,
+  };
+
+  // If user is a teacher, fetch their courses
+  if (user.role === 'teacher') {
+  const teacher = await db.Teacher.findOne({
+    where: { id: user.teacherId },
+    include: [
+      {
+        model: db.Course,
+        through: { attributes: [] }, // Exclude junction table attributes
+      },
+    ],
+  });
+
+  if (teacher) {
+    responseUser.courses = teacher.Courses.map(course => ({
+      id: course.id,
+      name: course.name,
+      code: course.code,
+      collegeId: course.collegeId,
+    }));
+  } else {
+    responseUser.courses = [];
+  }
+}
+
+
+  return { token, user: responseUser };
 };
 
 exports.forgotPassword = async (email) => {
