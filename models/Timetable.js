@@ -9,6 +9,8 @@ module.exports = (sequelize, DataTypes) => {
     courseId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Courses', key: 'id' } },
     section: { type: DataTypes.STRING },
     collegeId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Colleges', key: 'id' } },
+    validFrom: { type: DataTypes.DATE },
+    validTo: { type: DataTypes.DATE },
   }, {
     timestamps: true,
     tableName: 'Timetables',
