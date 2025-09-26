@@ -20,6 +20,15 @@ exports.createStudent = async ({ payload, creator }) => {
       throw ApiError.badRequest('Missing required student fields');
     }
 
+    // 🔹 Check duplicate (rollNo + collegeId OR email + collegeId)
+    const existing = await db.Student.findOne({
+      where: { rollNo: studentData.rollNo, collegeId: creator.collegeId },
+      transaction: t,
+    });
+    if (existing) {
+      throw ApiError.badRequest(`Duplicate student with rollNo ${studentData.rollNo} in this college`);
+    }
+
     const course = await db.Course.findOne({
       where: { id: studentData.courseId, collegeId: creator.collegeId },
       transaction: t,
@@ -97,9 +106,19 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
   for (const [index, row] of csvData.entries()) {
     const t = await db.sequelize.transaction();
     try {
-      // Validate mandatory fields
       if (!row.name || !row.email || !row.rollNo || !row.courseId) {
         failedRows.push({ row: index + 1, reason: 'Missing required student fields' });
+        await t.rollback();
+        continue;
+      }
+
+      // 🔹 Duplicate check
+      const existing = await db.Student.findOne({
+        where: { rollNo: row.rollNo, collegeId },
+        transaction: t,
+      });
+      if (existing) {
+        failedRows.push({ row: index + 1, reason: `Duplicate student with rollNo ${row.rollNo}` });
         await t.rollback();
         continue;
       }
@@ -112,11 +131,9 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
         continue;
       }
 
-      // Generate login IDs
       const studentLoginId = await generateLoginId(row.rollNo || row.name);
       const parentLoginId = await generateLoginId(`${studentLoginId}p`);
 
-      // Create student first
       const student = await db.Student.create(
         {
           name: row.name,
@@ -130,7 +147,6 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
         { transaction: t }
       );
 
-      // Create student user
       const hashedPassword = await bcrypt.hash(row.password || 'defaultPass123', 10);
       await db.User.create(
         {
@@ -145,14 +161,13 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
         { transaction: t }
       );
 
-      // Create parent only AFTER student is created
-      if ( row.parentName  && row.parentEmail) {
+      if (row.parentName && row.parentEmail) {
         await parentService.createParent(
           {
             name: row.parentName,
             email: row.parentEmail,
             phone: row.parentPhone || null,
-            password: row.parentPassword  || 'defaultPass123',
+            password: row.parentPassword || 'defaultPass123',
             loginId: parentLoginId,
             studentId: student.id,
             collegeId,
@@ -161,7 +176,6 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
         );
       }
 
-      // Fetch student with relations
       const newStudent = await db.Student.findOne({
         where: { id: student.id },
         include: [
@@ -180,9 +194,8 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
     }
   }
 
-  return { created, failedRows };
+  return { created, failedRows, createdCount: created.length, failedCount: failedRows.length };
 };
-
 
 
 exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {

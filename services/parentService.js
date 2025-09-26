@@ -5,6 +5,7 @@ const ApiError = require('../utils/ApiError');
 const { sendEmail } = require('../utils/email');
 const bcrypt = require('bcryptjs');
 
+// services/parentService.js
 exports.createParent = async (parentData, options = {}) => {
   const { transaction } = options;
   try {
@@ -14,7 +15,7 @@ exports.createParent = async (parentData, options = {}) => {
       throw ApiError.badRequest('Missing required parent fields: email or collegeId');
     }
 
-    // Find parent by email (unique in same college)
+    // Find parent by email in same college
     let parentUser = await db.User.findOne({
       where: { email, role: 'parent', collegeId },
       include: [{ model: db.Parent, as: 'Parent' }],
@@ -23,10 +24,10 @@ exports.createParent = async (parentData, options = {}) => {
 
     let parent;
     if (parentUser && parentUser.Parent) {
-      parent = parentUser.Parent;
+      parent = parentUser.Parent; // reuse existing parent
     } else {
       parent = await db.Parent.create(
-        { name, email, phone: phone || null, collegeId },
+        { name, email, phone: phone || null, collegeId, studentId }, 
         { transaction }
       );
 
@@ -45,12 +46,10 @@ exports.createParent = async (parentData, options = {}) => {
       );
     }
 
-    // Link student to parent
+    // Always link student to parent
     if (studentId) {
       const student = await db.Student.findByPk(studentId, { transaction });
-      if (!student) {
-        throw ApiError.badRequest(`Student with ID ${studentId} not found`);
-      }
+      if (!student) throw ApiError.badRequest(`Student with ID ${studentId} not found`);
       await student.update({ parentId: parent.id }, { transaction });
     }
 
