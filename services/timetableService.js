@@ -25,7 +25,6 @@ exports.getTimetable = async (user, page = 1, limit = 10) => {
     ]
   };
 
-
   if (user.role === 'teacher') {
     where.teacherId = user.teacherId;
   } else if (user.role === 'student') {
@@ -46,11 +45,21 @@ exports.getTimetable = async (user, page = 1, limit = 10) => {
     order: [['day', 'ASC'], ['time', 'ASC']]
   });
 
+  let header = null;
+  if (rows.length > 0) {
+    const { validFrom, validTo } = rows[0];
+    const fromDate = validFrom ? new Date(validFrom).toISOString().split('T')[0] : 'N/A';
+    const toDate = validTo ? new Date(validTo).toISOString().split('T')[0] : 'Ongoing';
+    header = `Valid from ${fromDate} till ${toDate}`;
+  }
+
   return {
+    header,
     timetable: rows,
     pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
   };
 };
+
 
 
 exports.getUpcomingClass = async ({ user }) => {
