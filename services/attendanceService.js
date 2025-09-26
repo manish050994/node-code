@@ -16,14 +16,21 @@ exports.markAttendance = async ({ attendances, date, collegeId }) => {
   const day = normalizeDateToDay(date);
   const t = await sequelize.transaction();
   try {
-    const results = await Promise.all(attendances.map(async ({studentId, status}) => {
-      return await db.Attendance.upsert({
-        studentId: parseInt(studentId),
-        date: day,
-        status,
-        collegeId,
-      }, { transaction: t, conflictFields: ['studentId', 'date'] });
-    }));
+      const results = await Promise.all(
+      attendances.map(async ({ studentId, status }) => {
+        const [record] = await db.Attendance.upsert(
+          {
+            studentId: parseInt(studentId),
+            date: day,
+            status,
+            collegeId,
+          },
+          { transaction: t, conflictFields: ['studentId', 'date'] }
+        );
+        return record; // return only the record, not [record, created]
+      })
+    );
+
     await t.commit();
     return results;
   } catch (error) {

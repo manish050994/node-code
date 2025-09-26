@@ -184,28 +184,57 @@ exports.login = async ({ email, password, collegeCode }) => {
   };
 
   // If user is a teacher, fetch their courses
+  // Teacher-specific data
   if (user.role === 'teacher') {
-  const teacher = await db.Teacher.findOne({
-    where: { id: user.teacherId },
-    include: [
-      {
-        model: db.Course,
-        through: { attributes: [] }, // Exclude junction table attributes
-      },
-    ],
-  });
+    const teacher = await db.Teacher.findOne({
+      where: { id: user.teacherId },
+      include: [
+        {
+          model: db.Course,
+          through: { attributes: [] }, // exclude CourseTeachers table attrs
+        },
+        {
+          model: db.Subject,
+          as: 'Subjects',
+          through: { attributes: [] }, // exclude TeacherSubjects table attrs
+        },
+      ],
+    });
 
-  if (teacher) {
-    responseUser.courses = teacher.Courses.map(course => ({
-      id: course.id,
-      name: course.name,
-      code: course.code,
-      collegeId: course.collegeId,
-    }));
-  } else {
-    responseUser.courses = [];
+    if (teacher) {
+      // Assigned courses
+      responseUser.courses = teacher.Courses.map(course => ({
+        id: course.id,
+        name: course.name,
+        code: course.code,
+        collegeId: course.collegeId,
+      }));
+
+      // Assigned subjects
+      responseUser.subjects = teacher.Subjects.map(subject => ({
+        id: subject.id,
+        name: subject.name,
+        code: subject.code,
+        collegeId: subject.collegeId,
+      }));
+
+      // Teacher type
+      responseUser.teacherType = [];
+      if (teacher.Courses.length > 0) {
+        responseUser.teacherType.push("class_teacher");
+      }
+      if (teacher.Subjects.length > 0) {
+        responseUser.teacherType.push("subject_teacher");
+      }
+      if (responseUser.teacherType.length === 0) {
+        responseUser.teacherType.push("unassigned");
+      }
+    } else {
+      responseUser.courses = [];
+      responseUser.subjects = [];
+      responseUser.teacherType = ["unassigned"];
+    }
   }
-}
 
 
   return { token, user: responseUser };
