@@ -162,4 +162,24 @@ db.User.belongsTo(db.Parent, { foreignKey: 'parentId', onDelete: 'SET NULL' });
 db.User.hasMany(db.Message, { foreignKey: 'fromId', as: 'sentMessages', onDelete: 'RESTRICT' });
 db.User.hasMany(db.Message, { foreignKey: 'toId', as: 'receivedMessages', onDelete: 'RESTRICT' });
 
+
+// --- CourseTeachers ---
+db.CourseTeachers.belongsTo(db.Course, { foreignKey: 'courseId' });
+db.CourseTeachers.belongsTo(db.Teacher, { foreignKey: 'teacherId' });
+db.Course.hasMany(db.CourseTeachers, { foreignKey: 'courseId' });
+db.Teacher.hasMany(db.CourseTeachers, { foreignKey: 'teacherId' });
+
+// --- CourseSubjects ---
+db.CourseSubjects.belongsTo(db.Course, { foreignKey: 'courseId' });
+db.CourseSubjects.belongsTo(db.Subject, { foreignKey: 'subjectId' });
+db.Course.hasMany(db.CourseSubjects, { foreignKey: 'courseId' });
+db.Subject.hasMany(db.CourseSubjects, { foreignKey: 'subjectId' });
+
+// --- TeacherSubjects ---
+db.TeacherSubjects.belongsTo(db.Teacher, { foreignKey: 'teacherId' });
+db.TeacherSubjects.belongsTo(db.Subject, { foreignKey: 'subjectId' });
+db.Teacher.hasMany(db.TeacherSubjects, { foreignKey: 'teacherId' });
+db.Subject.hasMany(db.TeacherSubjects, { foreignKey: 'subjectId' });
+
+
 module.exports = db;

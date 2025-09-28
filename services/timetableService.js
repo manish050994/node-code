@@ -110,115 +110,150 @@ exports.getUpcomingClass = async ({ user }) => {
   return null;
 };
 
+
 exports.getClassesByClassTeacher = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
-  const courseTeachers = await db.CourseTeachers.findAll({
+
+  const { count, rows } = await db.CourseTeachers.findAndCountAll({
     where: { teacherId },
-    attributes: ['courseId']
-  });
-
-  const courseIds = courseTeachers.map(ct => ct.courseId);
-
-  if (!courseIds.length) {
-    return { timetable: [], pagination: { page, limit, total: 0, pages: 0 } };
-  }
-
-  const where = {
-    collegeId,
-    courseId: { [Op.in]: courseIds },
-    [Op.and]: [
-      { validFrom: { [Op.lte]: new Date() } },
-      { [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: new Date() } }] }
-    ]
-  };
-
-  const { count, rows } = await db.Timetable.findAndCountAll({
-    where,
     include: [
-      { model: db.Subject, attributes: ['id', 'name', 'code'] },
-      { model: db.Teacher, attributes: ['id', 'name', 'employeeId'] },
-      { model: db.Course, attributes: ['id', 'name'] }
+      {
+        model: db.Course,
+        where: { collegeId },
+        attributes: ['id', 'code', 'name']
+      }
     ],
+    distinct: true,
     limit,
-    offset,
-    order: [['day', 'ASC'], ['time', 'ASC']]
+    offset
   });
 
   return {
-    timetable: rows,
-    pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
+    courses: rows.map(ct => ({
+      id: ct.Course.id,
+      code: ct.Course.code,
+      name: ct.Course.name
+    })),
+    pagination: {
+      page,
+      limit,
+      total: count,
+      pages: Math.ceil(count / limit)
+    }
   };
 };
+
+
 
 exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
-  const where = {
-    collegeId,
-    teacherId,
-    [Op.and]: [
-      { validFrom: { [Op.lte]: new Date() } },
-      { [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: new Date() } }] }
-    ]
-  };
 
-  const { count, rows } = await db.Timetable.findAndCountAll({
-    where,
-    include: [
-      { model: db.Subject, attributes: ['id', 'name', 'code'] },
-      { model: db.Teacher, attributes: ['id', 'name', 'employeeId'] },
-      { model: db.Course, attributes: ['id', 'name'] }
-    ],
-    limit,
-    offset,
-    order: [['day', 'ASC'], ['time', 'ASC']]
-  });
-
-  return {
-    timetable: rows,
-    pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
-  };
-};
-
-exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 10) => {
-  const offset = (page - 1) * limit;
+  // Step 1: get all subjectIds that teacher is teaching
   const teacherSubjects = await db.TeacherSubjects.findAll({
     where: { teacherId },
     attributes: ['subjectId']
   });
+  const subjectIds = teacherSubjects.map(ts => ts.subjectId);
 
+  if (!subjectIds.length) {
+    return { courses: [], pagination: { page, limit, total: 0, pages: 0 } };
+  }
+
+  // Step 2: find all course-subject mappings for these subjects in this college
+  const { count, rows } = await db.CourseSubjects.findAndCountAll({
+    where: {
+      subjectId: { [Op.in]: subjectIds }
+    },
+    include: [
+      {
+        model: db.Course,
+        where: { collegeId },
+        attributes: ['id', 'code', 'name']
+      },
+      {
+        model: db.Subject,
+        attributes: ['id', 'code', 'name']
+      }
+    ],
+    distinct: true,
+    limit,
+    offset
+  });
+
+  // Step 3: format
+  return {
+    courses: rows.map(cs => ({
+      courseId: cs.Course.id,
+      courseCode: cs.Course.code,
+      courseName: cs.Course.name,
+      subjectId: cs.Subject.id,
+      subjectCode: cs.Subject.code,
+      subjectName: cs.Subject.name
+    })),
+    pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
+  };
+};
+
+
+exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 10) => {
+  const offset = (page - 1) * limit;
+
+  // Get all subjectIds assigned to this teacher
+  const teacherSubjects = await db.TeacherSubjects.findAll({
+    where: { teacherId },
+    attributes: ['subjectId']
+  });
   const subjectIds = teacherSubjects.map(ts => ts.subjectId);
 
   if (!subjectIds.length) {
     return { subjects: [], pagination: { page, limit, total: 0, pages: 0 } };
   }
 
+  // Fetch subjects that are mapped to courses as well
   const { count, rows } = await db.Subject.findAndCountAll({
     where: { id: { [Op.in]: subjectIds }, collegeId },
     include: [
       {
+        model: db.CourseSubjects,
+        include: [
+          {
+            model: db.Course,
+            attributes: ['id', 'code', 'name'],
+            where: { collegeId }
+          }
+        ]
+      },
+      {
         model: db.Timetable,
         as: 'Timetables',
         attributes: ['id', 'day', 'time', 'courseId', 'section', 'validFrom', 'validTo'],
-        include: [
-          { model: db.Course, attributes: ['id', 'name'] }
-        ],
+        include: [{ model: db.Course, attributes: ['id', 'name'] }],
         where: {
           [Op.and]: [
             { validFrom: { [Op.lte]: new Date() } },
             { [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: new Date() } }] }
           ]
-        }
+        },
+        required: false
       }
     ],
+    distinct: true,
     limit,
     offset
   });
 
   return {
-    subjects: rows,
+    subjects: rows.map(subject => ({
+      id: subject.id,
+      code: subject.code,
+      name: subject.name,
+      courses: subject.CourseSubjects.map(cs => cs.Course),
+      timetables: subject.Timetables
+    })),
     pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
   };
 };
+
 
 exports.exportCsv = async () => {
   const fields = ['day', 'time', 'subjectId', 'teacherId', 'courseId', 'section', 'validFrom', 'validTo'];
