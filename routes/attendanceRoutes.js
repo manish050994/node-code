@@ -5,7 +5,7 @@ const { markAttendance, getAttendance, exportAttendance, uploadOfflineAttendance
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/multer');
 
-router.get('/sample-csv', protect, authorize('collegeadmin'), featureAuthorize('attendance'), getSampleCsv);
+router.get('/sample-csv', protect, authorize('collegeadmin', 'teacher'), featureAuthorize('attendance'), getSampleCsv);
 router.post('/', protect, authorize('teacher', 'collegeadmin', 'superadmin'), featureAuthorize('attendance'), markAttendance);
 router.get('/', protect, featureAuthorize('attendance'), getAttendance);
 router.get('/export', protect, authorize('teacher', 'collegeadmin', 'superadmin'), featureAuthorize('attendance'), exportAttendance);

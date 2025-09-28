@@ -16,7 +16,7 @@ exports.markAttendance = async ({ attendances, date, collegeId }) => {
   const day = normalizeDateToDay(date);
   const t = await sequelize.transaction();
   try {
-      const results = await Promise.all(
+    const results = await Promise.all(
       attendances.map(async ({ studentId, status }) => {
         const [record] = await db.Attendance.upsert(
           {
@@ -27,10 +27,9 @@ exports.markAttendance = async ({ attendances, date, collegeId }) => {
           },
           { transaction: t, conflictFields: ['studentId', 'date'] }
         );
-        return record; // return only the record, not [record, created]
+        return record;
       })
     );
-
     await t.commit();
     return results;
   } catch (error) {
@@ -43,9 +42,15 @@ exports.getAttendance = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;
   const filter = { collegeId };
 
+  // Handle status filter
+  if (q.status && ['present', 'absent', 'late'].includes(q.status)) {
+    filter.status = q.status;
+  } else if (q.status && q.status !== 'all') {
+    throw ApiError.badRequest('Invalid status filter: must be present, absent, late, or all');
+  }
+
   // Handle multiple students or all students
   if (q.studentIds) {
-    // Expecting comma-separated IDs or array
     let studentArray = [];
     if (Array.isArray(q.studentIds)) {
       studentArray = q.studentIds.map(id => parseInt(id));
@@ -54,7 +59,7 @@ exports.getAttendance = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
     }
     if (studentArray.length > 0) filter.studentId = { [db.Sequelize.Op.in]: studentArray };
   } else if (q.student) {
-    filter.studentId = parseInt(q.student); // single student
+    filter.studentId = parseInt(q.student);
   }
 
   // Date filters
@@ -79,20 +84,24 @@ exports.getAttendance = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
   return { attendances: rows, total: count, page, limit };
 };
 
-
-exports.uploadOffline = (filePath, collegeId) => {
+exports.uploadOffline = async (filePath, collegeId) => {
   return new Promise((resolve, reject) => {
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => results.push(data))
+      .on('data', (data) => {
+        if (!data.studentId || !data.date || !data.status) {
+          throw ApiError.badRequest('CSV row missing required fields: studentId, date, status');
+        }
+        if (!['present', 'absent', 'late'].includes(data.status)) {
+          throw ApiError.badRequest(`Invalid status in CSV: ${data.status}`);
+        }
+        results.push(data);
+      })
       .on('end', async () => {
         const t = await sequelize.transaction();
         try {
           const attendances = await Promise.all(results.map(async (row) => {
-            if (!row.studentId || !row.date || !row.status) {
-              throw ApiError.badRequest('CSV row missing required fields: studentId, date, status');
-            }
             return await db.Attendance.upsert({
               studentId: parseInt(row.studentId),
               date: normalizeDateToDay(row.date),
@@ -105,14 +114,12 @@ exports.uploadOffline = (filePath, collegeId) => {
             });
           }));
           await t.commit();
-          // Clean up the uploaded file
           fs.unlink(filePath, (err) => {
             if (err) console.error('Failed to delete temp file:', err);
           });
           resolve({ count: attendances.length });
         } catch (err) {
           await t.rollback();
-          // Clean up file on error
           fs.unlink(filePath, (err) => {
             if (err) console.error('Failed to delete temp file:', err);
           });
@@ -120,7 +127,6 @@ exports.uploadOffline = (filePath, collegeId) => {
         }
       })
       .on('error', (err) => {
-        // Clean up file on stream error
         fs.unlink(filePath, (err) => {
           if (err) console.error('Failed to delete temp file:', err);
         });

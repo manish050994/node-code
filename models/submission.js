@@ -1,29 +1,21 @@
-'use strict';
-const {
-  Model
-} = require('sequelize');
+// models/Submission.js
 module.exports = (sequelize, DataTypes) => {
-  class Submission extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models) {
-      // define association here
-    }
-  }
-  Submission.init({
-    assignmentId: DataTypes.INTEGER,
-    studentId: DataTypes.INTEGER,
-    file: DataTypes.STRING,
-    text: DataTypes.TEXT,
-    submittedAt: DataTypes.DATE
+  const Submission = sequelize.define('Submission', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    assignmentId: { type: DataTypes.INTEGER, allowNull: false },
+    studentId: { type: DataTypes.INTEGER, allowNull: false },
+    file: { type: DataTypes.STRING },
+    text: { type: DataTypes.TEXT },
+    submittedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   }, {
-    sequelize,          
-    modelName: 'Submission',
-    timestamps: false,
-    tableName: 'Submission',
+    timestamps: true,
+    tableName: 'Submissions',
   });
+
+  Submission.associate = (models) => {
+    Submission.belongsTo(models.Assignment, { foreignKey: 'assignmentId', onDelete: 'CASCADE' });
+    Submission.belongsTo(models.Student, { foreignKey: 'studentId', onDelete: 'RESTRICT' });
+  };
+
   return Submission;
 };

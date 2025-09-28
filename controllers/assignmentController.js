@@ -1,10 +1,15 @@
-// New controller: controllers\assignmentController.js
+// controllers/assignmentController.js
 const assignmentService = require('../services/assignmentService');
 
 exports.createAssignment = async (req, res, next) => {
   try {
-    const a = await assignmentService.createAssignment(req.body, req.user.teacherId, req.user.collegeId);
-    return res.success(a, 'Assignment created');
+    // Accept JSON or form-data where questions[] might be JSON
+    const payload = { ...req.body };
+    if (req.body.questions && typeof req.body.questions === 'string') {
+      try { payload.questions = JSON.parse(req.body.questions); } catch(e) {}
+    }
+    const a = await assignmentService.createAssignment(payload, req.user.teacherId, req.user.collegeId);
+    return res.status(201).json({ data: a, message: 'Assignment created', status: true });
   } catch (err) {
     return next(err);
   }
@@ -14,7 +19,7 @@ exports.getAssignments = async (req, res, next) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const list = await assignmentService.getAssignments(req.user, { page, limit });
-    return res.success(list, 'Assignments fetched');
+    return res.json({ data: list, message: 'Assignments fetched', status: true });
   } catch (err) {
     return next(err);
   }
@@ -22,8 +27,9 @@ exports.getAssignments = async (req, res, next) => {
 
 exports.submitAssignment = async (req, res, next) => {
   try {
-    const submission = await assignmentService.submitAssignment(req.params.id, req.user.studentId, req.file.path, req.body.text);
-    return res.success(submission, 'Assignment submitted');
+    const filePath = req.file ? req.file.path : null;
+    const submission = await assignmentService.submitAssignment(req.params.id, req.user.studentId, filePath, req.body.text);
+    return res.status(201).json({ data: submission, message: 'Assignment submitted', status: true });
   } catch (err) {
     return next(err);
   }
@@ -32,8 +38,8 @@ exports.submitAssignment = async (req, res, next) => {
 exports.getSubmissions = async (req, res, next) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const list = await assignmentService.getSubmissions(req.params.id, req.user.teacherId,{ page, limit });
-    return res.success(list, 'Submissions fetched');
+    const list = await assignmentService.getSubmissions(req.params.id, req.user.teacherId, { page, limit });
+    return res.json({ data: list, message: 'Submissions fetched', status: true });
   } catch (err) {
     return next(err);
   }

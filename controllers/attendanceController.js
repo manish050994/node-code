@@ -59,7 +59,9 @@ exports.getAttendance = async (req, res, next) => {
   try {
     const list = await attendanceService.getAttendance({
       q: req.query,
-      collegeId: req.user.collegeId, // Fixed: req.user.collegeId
+      collegeId: req.user.collegeId,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 10
     });
     return res.success(list, 'Attendance list fetched');
   } catch (err) {
@@ -71,14 +73,20 @@ exports.exportAttendance = async (req, res, next) => {
   try {
     const list = await attendanceService.getAttendance({
       q: req.query,
-      collegeId: req.user.collegeId, // Fixed: req.user.collegeId
+      collegeId: req.user.collegeId,
+      page: 1,
+      limit: 1000
     });
-    const fileInfo = await exportToExcel(list, 'attendance-report');
-    return res.success({
-      message: 'Attendance report generated',
-      downloadUrl: fileInfo.fullPath,
-      filename: fileInfo.filename,
-    }, 'Report ready');
+    const data = list.attendances.map(a => ({
+      studentId: a.studentId,
+      studentName: a.Student?.name,
+      date: a.date,
+      status: a.status
+    }));
+    const buffer = await exportToExcel(data, ['studentId', 'studentName', 'date', 'status'], 'Attendance');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="attendance-report.xlsx"');
+    res.send(buffer);
   } catch (err) {
     return next(err);
   }
@@ -87,7 +95,7 @@ exports.exportAttendance = async (req, res, next) => {
 exports.uploadOfflineAttendance = async (req, res, next) => {
   try {
     if (!req.file) throw ApiError.badRequest('No file uploaded');
-    const result = await attendanceService.uploadOffline(req.file.path, req.user.collegeId); // Fixed: req.user.collegeId
+    const result = await attendanceService.uploadOffline(req.file.path, req.user.collegeId);
     return res.success(result, 'Offline attendance uploaded');
   } catch (err) {
     return next(err);

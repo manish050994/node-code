@@ -26,6 +26,7 @@ const markRoutes = require('./routes/markRoutes');
 const timetableRoutes = require('./routes/timetableRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const studentLeaveRoutes = require('./routes/studentLeaveRoutes');
+const examRoutes = require('./routes/examRoutes');
 
 const errorHandler = require('./middlewares/errorHandler');
 const responseFormatter = require('./middlewares/responseFormatter');
@@ -60,6 +61,7 @@ app.use('/api/marks', markRoutes);
 app.use('/api/timetables', timetableRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/student-leaves', studentLeaveRoutes);
+app.use('/api/exams', examRoutes);
 
 // Error handler
 app.use(errorHandler);
