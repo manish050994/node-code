@@ -5,13 +5,13 @@ module.exports = {
     if (!columns.subjectId) {
       await queryInterface.addColumn('Assignments', 'subjectId', {
         type: Sequelize.INTEGER,
-        allowNull: true, // Adjust based on your requirements
+        allowNull: true,
         references: {
           model: 'Subjects',
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT' // Match models/index.js
       });
     }
   },
