@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const { createAssignmentWithQuestions, getAssignments, submitAssignment, getSubmissions } = require('../controllers/assignmentController');
-const { addQuestion, uploadSolution, getQuestions } = require('../controllers/questionController');
+const { addQuestion, uploadSolution, getQuestions, getSolution } = require('../controllers/questionController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/multer');
 const ApiError = require('../utils/ApiError');
@@ -55,6 +55,7 @@ router.get('/', protect, authorize('teacher', 'student'), featureAuthorize('assi
 
 router.get('/:id/questions', protect, authorize('teacher', 'student'), featureAuthorize('assignment'), getQuestions);
 router.post('/:id/questions/:qid/solution', protect, authorize('teacher'), featureAuthorize('assignment'), upload.single('solutionFile'), uploadSolution);
+router.get('/:id/questions/:qid/solution', protect, authorize('teacher', 'student'), featureAuthorize('assignment'), getSolution);
 
 router.post('/:id/submit', protect, authorize('student'), featureAuthorize('assignment'), upload.single('file'), submitAssignment);
 router.get('/:id/submissions', protect, authorize('teacher'), featureAuthorize('assignment'), getSubmissions);
