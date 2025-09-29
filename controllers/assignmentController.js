@@ -1,19 +1,33 @@
-// controllers/assignmentController.js
 const assignmentService = require('../services/assignmentService');
+const ApiError = require('../utils/ApiError');
 
-exports.createAssignment = async (req, res, next) => {
+exports.createAssignmentWithQuestions = async (req, res, next) => {
   try {
-    // Accept JSON or form-data where questions[] might be JSON
-    const payload = { ...req.body };
-    if (req.body.questions && typeof req.body.questions === 'string') {
-      try { payload.questions = JSON.parse(req.body.questions); } catch(e) {}
+    let payload = { ...req.body };
+    if (!payload.questions) {
+      throw new ApiError(400, 'Questions array is required');
     }
-    const a = await assignmentService.createAssignment(payload, req.user.teacherId, req.user.collegeId);
-    return res.status(201).json({ data: a, message: 'Assignment created', status: true });
+
+    // Map files to questions using filesMap
+    payload.questions = payload.questions.map(q => ({
+      ...q,
+      questionFile: req.filesMap[q.fileKey] ? req.filesMap[q.fileKey].path : null
+    }));
+
+    const result = await assignmentService.createAssignmentWithQuestions(
+      payload,
+      req.user.teacherId,
+      req.user.collegeId,
+      Object.values(req.filesMap),
+      req // Pass req for host URL
+    );
+
+    return res.status(201).json({ data: result, message: 'Assignment created with questions', status: true });
   } catch (err) {
     return next(err);
   }
 };
+
 
 exports.getAssignments = async (req, res, next) => {
   try {
@@ -34,6 +48,8 @@ exports.submitAssignment = async (req, res, next) => {
     return next(err);
   }
 };
+
+
 
 exports.getSubmissions = async (req, res, next) => {
   try {

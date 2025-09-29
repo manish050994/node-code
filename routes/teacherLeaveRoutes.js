@@ -9,5 +9,7 @@ router.post('/', protect, authorize('teacher'), featureAuthorize('leave'), reque
 router.get('/me', protect, authorize('teacher'), featureAuthorize('leave'), myLeaves);
 router.get('/', protect, authorize('collegeadmin','superadmin'), featureAuthorize('leave'), listLeaves);
 router.patch('/:id/status', protect, authorize('collegeadmin','superadmin'), featureAuthorize('leave'), setStatus);
+router.get('/history', protect, authorize('teacher'), featureAuthorize('leave'), require('../controllers/teacherLeaveController').leaveHistory);
+
 
 module.exports = router;

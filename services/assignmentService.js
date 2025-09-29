@@ -1,13 +1,14 @@
-// services/assignmentService.js
 const { sequelize } = require('../models');
 const db = require('../models');
 const ApiError = require('../utils/ApiError');
+const path = require('path'); 
 
-exports.createAssignment = async (payload, teacherId, collegeId) => {
+exports.createAssignmentWithQuestions = async (payload, teacherId, collegeId, files, req) => {
   const t = await sequelize.transaction();
   try {
-    // payload should include: title, description, dueDate, subjectId, courseId, optional questions: [{ title, marks, questionFile }]
-    const questions = payload.questions || []; 
+    const questions = payload.questions || [];
+    const host = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
     const assignment = await db.Assignment.create({
       title: payload.title,
       description: payload.description,
@@ -18,26 +19,39 @@ exports.createAssignment = async (payload, teacherId, collegeId) => {
       collegeId,
     }, { transaction: t });
 
-    // create question rows if any (assume questionFile path present)
-    for (const q of questions) {
-      await db.AssignmentQuestion.create({
+    const questionRecords = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const filePath = q.questionFile || null;
+      const fileUrl = filePath ? `${host}/uploads/${path.basename(filePath)}` : null;
+
+      const question = await db.AssignmentQuestion.create({
         assignmentId: assignment.id,
         title: q.title || null,
-        questionFile: q.questionFile || null,
+        questionFile: fileUrl, // Store full URL in questionFile
         marks: q.marks || 0,
       }, { transaction: t });
+      questionRecords.push({
+        ...question.dataValues
+      });
     }
 
     await t.commit();
-    // return created assignment with questions
+
     const result = await db.Assignment.findOne({
       where: { id: assignment.id },
       include: [{ model: db.AssignmentQuestion }],
     });
-    return result;
+
+    return {
+      ...result.dataValues,
+      AssignmentQuestions: result.AssignmentQuestions.map(q => ({
+        ...q.dataValues
+      }))
+    };
   } catch (error) {
     await t.rollback();
-    throw ApiError.badRequest(`Failed to create assignment: ${error.message}`);
+    throw new ApiError(400, `Failed to create assignment: ${error.message}`);
   }
 };
 
@@ -47,7 +61,7 @@ exports.getAssignments = async (user, { page = 1, limit = 10 }) => {
   if (user.role === 'teacher') filter.teacherId = user.teacherId;
   if (user.role === 'student') {
     const student = await db.Student.findOne({ where: { id: user.studentId } });
-    if (!student) throw ApiError.notFound('Student not found');
+    if (!student) throw new ApiError(404, 'Student not found');
     filter.courseId = student.courseId;
   }
   const { rows, count } = await db.Assignment.findAndCountAll({
@@ -64,9 +78,8 @@ exports.submitAssignment = async (id, studentId, file, text) => {
   const t = await sequelize.transaction();
   try {
     const assignment = await db.Assignment.findOne({ where: { id }, transaction: t });
-    if (!assignment) throw ApiError.notFound('Assignment not found');
+    if (!assignment) throw new ApiError(404, 'Assignment not found');
 
-    // If already submitted and you want to allow update, handle accordingly.
     const submission = await db.Submission.create({
       assignmentId: id,
       studentId,
@@ -79,14 +92,14 @@ exports.submitAssignment = async (id, studentId, file, text) => {
     return submission;
   } catch (error) {
     await t.rollback();
-    throw ApiError.badRequest(`Failed to submit assignment: ${error.message}`);
+    throw new ApiError(400, `Failed to submit assignment: ${error.message}`);
   }
 };
 
 exports.getSubmissions = async (id, teacherId, { page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;
   const assignment = await db.Assignment.findOne({ where: { id, teacherId } });
-  if (!assignment) throw ApiError.notFound('Assignment not found or unauthorized');
+  if (!assignment) throw new ApiError(404, 'Assignment not found or unauthorized');
   const { rows, count } = await db.Submission.findAndCountAll({
     where: { assignmentId: id },
     include: [{ model: db.Student }],

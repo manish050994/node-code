@@ -55,3 +55,24 @@ exports.setStatus = async ({ id, status, comments }) => {
     throw ApiError.badRequest(`Failed to set leave status: ${error.message}`);
   }
 };
+
+// services/teacherLeaveService.js
+exports.leaveHistory = async (teacherId, { page = 1, limit = 10 } = {}) => {
+  const offset = (page - 1) * limit;
+
+  const { rows, count } = await db.TeacherLeaveRequest.findAndCountAll({
+    where: { teacherId },
+    include: [{ model: db.Teacher, as: 'Teacher', attributes: ['id', 'name', 'employeeId'] }],
+    offset,
+    limit,
+    order: [['from', 'DESC']]
+  });
+
+  return {
+    history: rows,
+    total: count,
+    page,
+    limit,
+    pages: Math.ceil(count / limit)
+  };
+};

@@ -120,7 +120,18 @@ exports.getClassesByClassTeacher = async (teacherId, collegeId, page = 1, limit 
       {
         model: db.Course,
         where: { collegeId },
-        attributes: ['id', 'code', 'name']
+        attributes: ['id', 'code', 'name'],
+        include: [
+          {
+            model: db.CourseSubjects,
+            include: [
+              {
+                model: db.Subject,
+                attributes: ['id', 'code', 'name']
+              }
+            ]
+          }
+        ]
       }
     ],
     distinct: true,
@@ -132,7 +143,12 @@ exports.getClassesByClassTeacher = async (teacherId, collegeId, page = 1, limit 
     courses: rows.map(ct => ({
       id: ct.Course.id,
       code: ct.Course.code,
-      name: ct.Course.name
+      name: ct.Course.name,
+      subjects: ct.Course.CourseSubjects.map(cs => ({
+        id: cs.Subject.id,
+        code: cs.Subject.code,
+        name: cs.Subject.name
+      }))
     })),
     pagination: {
       page,
@@ -142,8 +158,6 @@ exports.getClassesByClassTeacher = async (teacherId, collegeId, page = 1, limit 
     }
   };
 };
-
-
 
 exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
@@ -161,9 +175,7 @@ exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limi
 
   // Step 2: find all course-subject mappings for these subjects in this college
   const { count, rows } = await db.CourseSubjects.findAndCountAll({
-    where: {
-      subjectId: { [Op.in]: subjectIds }
-    },
+    where: { subjectId: { [Op.in]: subjectIds } },
     include: [
       {
         model: db.Course,
@@ -180,20 +192,30 @@ exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limi
     offset
   });
 
-  // Step 3: format
+  // Step 3: group subjects under their course
+  const courseMap = {};
+  rows.forEach(cs => {
+    const courseId = cs.Course.id;
+    if (!courseMap[courseId]) {
+      courseMap[courseId] = {
+        id: cs.Course.id,
+        code: cs.Course.code,
+        name: cs.Course.name,
+        subjects: []
+      };
+    }
+    courseMap[courseId].subjects.push({
+      id: cs.Subject.id,
+      code: cs.Subject.code,
+      name: cs.Subject.name
+    });
+  });
+
   return {
-    courses: rows.map(cs => ({
-      courseId: cs.Course.id,
-      courseCode: cs.Course.code,
-      courseName: cs.Course.name,
-      subjectId: cs.Subject.id,
-      subjectCode: cs.Subject.code,
-      subjectName: cs.Subject.name
-    })),
+    courses: Object.values(courseMap),
     pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
   };
 };
-
 
 exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;

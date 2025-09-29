@@ -40,3 +40,17 @@ exports.setStatus = async (req, res, next) => {
     return next(err);
   }
 };
+
+// controllers/teacherLeaveController.js
+exports.leaveHistory = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const history = await teacherLeaveService.leaveHistory(req.user.teacherId, {
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+    return res.success(history, 'Leave history fetched');
+  } catch (err) {
+    return next(err);
+  }
+};
