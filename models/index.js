@@ -20,6 +20,7 @@ db.Assignment = require('./Assignment')(sequelize, DataTypes);
 db.AssignmentQuestion = require('./AssignmentQuestion')(sequelize, DataTypes);
 db.Submission = require('./submission')(sequelize, DataTypes);
 db.Mark = require('./Mark')(sequelize, DataTypes);
+db.Exam = require("./Exams")(sequelize, Sequelize.DataTypes);
 db.Attendance = require('./Attendance')(sequelize, DataTypes);
 db.College = require('./College')(sequelize, DataTypes);
 db.Course = require('./Course')(sequelize, DataTypes);
@@ -100,6 +101,8 @@ db.Mark.belongsTo(db.Subject, { foreignKey: 'subjectId', onDelete: 'RESTRICT' })
 db.Mark.belongsTo(db.Assignment, { foreignKey: 'assignmentId', onDelete: 'SET NULL' });
 db.Mark.belongsTo(db.Teacher, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Mark.belongsTo(db.College, { foreignKey: 'collegeId', onDelete: 'CASCADE' });
+db.Mark.belongsTo(db.Exam, { foreignKey: 'examId', onDelete: 'SET NULL' });
+db.Exam.hasMany(db.Mark, { foreignKey: 'examId', onDelete: 'SET NULL' });
 
 // Message
 db.Message.belongsTo(db.User, { foreignKey: 'fromId', as: 'from', onDelete: 'RESTRICT' });

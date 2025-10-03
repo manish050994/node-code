@@ -2,44 +2,45 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Assignment_Questions', {
+    await queryInterface.createTable('"AssignmentQuestions"', { // double quotes to preserve camelCase
       id: {
         type: Sequelize.INTEGER,
         primaryKey: true,
         autoIncrement: true,
       },
-      assignment_id: {
+      assignmentId: { // matches model
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Assignments',
+          model: 'Assignments', // table name as in DB
           key: 'id',
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      question_text: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      question_file: {
-        type: Sequelize.STRING, // file path or URL
+      questionFile: {
+        type: Sequelize.STRING,
         allowNull: true,
       },
-      solution_file: {
-        type: Sequelize.STRING, // file path or URL
+      solutionFile: {
+        type: Sequelize.STRING,
         allowNull: true,
       },
       marks: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.FLOAT, // match model
+        defaultValue: 0,
+        allowNull: false,
+      },
+      title: {
+        type: Sequelize.STRING,
         allowNull: true,
       },
-      created_at: {
+      createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
-      updated_at: {
+      updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
@@ -47,7 +48,7 @@ module.exports = {
     });
   },
 
-  async down(queryInterface) {
-    await queryInterface.dropTable('Assignment_Questions');
+  async down(queryInterface, Sequelize) {
+    await queryInterface.dropTable('"AssignmentQuestions"'); // double quotes again
   },
 };

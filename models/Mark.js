@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     studentId: { type: DataTypes.INTEGER, allowNull: false },
     subjectId: { type: DataTypes.INTEGER, allowNull: false },
     assignmentId: { type: DataTypes.INTEGER },      // NEW: link to assignment (optional)
-    examName: { type: DataTypes.STRING },           // NEW
+    examId: { type: DataTypes.INTEGER, allowNull: true },   // UPDATED
     marks: { type: DataTypes.FLOAT },
     totalMarks: { type: DataTypes.FLOAT },          // NEW
     grade: { type: DataTypes.STRING },
@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     Mark.belongsTo(models.Student, { foreignKey: 'studentId', onDelete: 'RESTRICT' });
     Mark.belongsTo(models.Subject, { foreignKey: 'subjectId', onDelete: 'RESTRICT' });
     Mark.belongsTo(models.Assignment, { foreignKey: 'assignmentId', onDelete: 'SET NULL' });
+    Mark.belongsTo(models.Exam, { foreignKey: 'examId', onDelete: 'SET NULL' });
     Mark.belongsTo(models.Teacher, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
     Mark.belongsTo(models.College, { foreignKey: 'collegeId', onDelete: 'CASCADE' });
   };
