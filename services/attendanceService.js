@@ -73,9 +73,15 @@ exports.getAttendance = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
     filter.date = { [db.Sequelize.Op.lte]: normalizeDateToDay(q.to) };
   }
 
+
+    // Handle course filter
+  if (q.courseId) {
+    filter['$Student.courseId$'] = parseInt(q.courseId);
+  }
+
   const { rows, count } = await db.Attendance.findAndCountAll({
     where: filter,
-    include: [{ model: db.Student, as: 'Student', attributes: ['id', 'name'] }],
+    include: [{ model: db.Student, as: 'Student', attributes: ['id', 'name','courseId'] }],
     offset,
     limit,
     order: [['date', 'ASC'], ['studentId', 'ASC']],
