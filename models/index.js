@@ -114,6 +114,7 @@ db.Notification.belongsTo(db.College, { foreignKey: 'collegeId', onDelete: 'CASC
 // Parent
 db.Parent.hasMany(db.Student, { foreignKey: 'parentId', onDelete: 'SET NULL' });
 db.Parent.belongsTo(db.College, { foreignKey: 'collegeId', onDelete: 'CASCADE' });
+db.Parent.hasOne(db.User, { foreignKey: 'parentId', onDelete: 'SET NULL' });
 
 // Student
 db.Student.belongsTo(db.Course, { foreignKey: 'courseId', onDelete: 'RESTRICT' });
@@ -124,7 +125,7 @@ db.Student.hasMany(db.Attendance, { foreignKey: 'studentId', onDelete: 'RESTRICT
 db.Student.hasMany(db.Mark, { foreignKey: 'studentId', onDelete: 'RESTRICT' });
 db.Student.hasMany(db.StudentLeaveRequest, { foreignKey: 'studentId', onDelete: 'RESTRICT' });
 db.Student.hasMany(db.Submission, { foreignKey: 'studentId', onDelete: 'RESTRICT' });
-db.Student.hasOne(db.User, { foreignKey: 'studentId', as: 'User', onDelete: 'SET NULL' });
+db.Student.hasOne(db.User, { foreignKey: 'studentId', onDelete: 'SET NULL' });
 
 // StudentLeaveRequest
 db.StudentLeaveRequest.belongsTo(db.Student, { foreignKey: 'studentId', onDelete: 'RESTRICT' });

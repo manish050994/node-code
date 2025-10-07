@@ -1,82 +1,99 @@
 // services\teacherService.js
 const db = require('../models');
 const authService = require('./authService');
+const fs = require('fs');
+const csv = require('csv-parser');
+
 const ApiError = require('../utils/ApiError');
 
-exports.createTeacher = async (payload, collegeId) => {
+exports.createTeacher = async (payload, collegeId, options = {}) => {
   if (!payload.name || !payload.employeeId || !payload.email || !payload.password) {
     throw ApiError.badRequest('name, employeeId, email, and password required');
   }
-  const t = await db.sequelize.transaction();
+  const t = options.transaction || await db.sequelize.transaction();
   try {
-    // Verify college exists
     const college = await db.College.findOne({ where: { id: collegeId }, transaction: t });
     if (!college) throw ApiError.notFound('College not found');
 
-    // Create user first (without teacherId)
+    const existingTeacher = await db.Teacher.findOne({
+      where: { employeeId: payload.employeeId, collegeId },
+      transaction: t,
+    });
+    if (existingTeacher) throw ApiError.conflict('Teacher with this employeeId already exists');
+
+    const teacher = await db.Teacher.create({
+      name: payload.name,
+      employeeId: payload.employeeId,
+      email: payload.email,
+      gender: payload.gender || null,
+      dob: payload.dob ? new Date(payload.dob) : null,
+      profilePhoto: payload.profilePhoto || null,
+      mobileNo: payload.mobileNo || null,
+      category: payload.category || null,
+      collegeId,
+    }, { transaction: t });
+
     const user = await authService.registerTeacher({
       name: payload.name,
       email: payload.email.toLowerCase(),
-      password: payload.password, // Use provided password (hashed in authService)
+      password: payload.password,
       collegeId,
+      teacherId: teacher.id,
     }, { transaction: t });
 
-    // Create teacher
-    const teacher = await db.Teacher.create({
-      ...payload,
-      collegeId,
-    }, { transaction: t });
-
-    // Link teacher to user
-    await db.User.update({ teacherId: teacher.id }, { where: { id: user.id }, transaction: t });
-
-    await t.commit();
-    return { teacher, user }; // Return both (password is hashed in user)
+    if (!options.transaction) await t.commit();
+    return { teacher, user };
   } catch (error) {
-    await t.rollback();
+    if (!options.transaction) await t.rollback();
     throw ApiError.badRequest(`Failed to create teacher: ${error.message}`);
   }
 };
 
 exports.bulkCreateTeachers = async (filePath, collegeId) => {
-  return new Promise((resolve, reject) => {
-    const results = [];
+  const created = [];
+  const failedRows = [];
+
+  const csvData = await new Promise((resolve, reject) => {
+    const rows = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        const t = await db.sequelize.transaction();
-        try {
-          const teachers = await Promise.all(results.map(async (row) => {
-            if (!row.name || !row.employeeId || !row.email || !row.password) {
-              throw ApiError.badRequest('CSV row missing required fields: name, employeeId, email, password');
-            }
-            return await exports.createTeacher(row, collegeId, { transaction: t });
-          }));
-          await t.commit();
-          // Clean up the uploaded file
-          fs.unlink(filePath, (err) => {
-            if (err) console.error('Failed to delete temp file:', err);
-          });
-          resolve({ count: teachers.length });
-        } catch (err) {
-          await t.rollback();
-          // Clean up file on error
-          fs.unlink(filePath, (err) => {
-            if (err) console.error('Failed to delete temp file:', err);
-          });
-          reject(ApiError.badRequest(`Failed to bulk create teachers: ${err.message}`));
-        }
-      })
-      .on('error', (err) => {
-        // Clean up file on stream error
-        fs.unlink(filePath, (err) => {
-          if (err) console.error('Failed to delete temp file:', err);
-        });
-        reject(ApiError.badRequest(`Failed to read CSV: ${err.message}`));
-      });
+      .on('data', (row) => rows.push(row))
+      .on('end', () => resolve(rows))
+      .on('error', reject);
   });
+
+  for (const [index, row] of csvData.entries()) {
+    const t = await db.sequelize.transaction();
+    try {
+      if (!row.name || !row.employeeId || !row.email || !row.password) {
+        failedRows.push({ row: index + 1, reason: 'Missing required fields: name, employeeId, email, password' });
+        await t.rollback();
+        continue;
+      }
+
+      const result = await exports.createTeacher(row, collegeId, { transaction: t });
+      await t.commit();
+
+      // Include loginId from created user
+      created.push({
+        row: index + 1,
+        teacher: result.teacher,
+        loginId: result.user.loginId || null,
+      });
+    } catch (err) {
+      if (!t.finished) await t.rollback();
+      failedRows.push({ row: index + 1,teacher: row, reason: err.message });
+    }
+  }
+
+  // Clean up file
+  fs.unlink(filePath, (err) => {
+    if (err) console.error('Failed to delete temp file:', err);
+  });
+
+  return { created, failedRows, createdCount: created.length, failedCount: failedRows.length };
 };
+
 
 exports.getTeachers = async (options = {}) => {
   const { collegeId, page = 1, limit = 10 } = options;

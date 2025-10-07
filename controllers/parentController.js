@@ -1,18 +1,34 @@
 // New controller: controllers\parentController.js
 const parentService = require('../services/parentService');
+const db = require('../models');
+const ApiError = require('../utils/ApiError');
+
 
 exports.createParent = async (req, res, next) => {
+ const t = await db.sequelize.transaction();
   try {
-    const result = await parentService.createParent(req.body, req.user.collegeId);
+    const payload = {
+      ...req.body,
+      collegeId: req.user.collegeId,
+    };
+
+    const result = await parentService.createParent(payload, { transaction: t });
+    await t.commit();
+
     return res.success(result, 'Parent created and credentials sent');
   } catch (err) {
-    return next(err);
+    await t.rollback();
+    return next(ApiError.badRequest(err.message));
   }
 };
 
 exports.getParents = async (req, res, next) => {
   try {
-    const list = await parentService.getParents(req.user.collegeId);
+    // Optional: extract page & limit from query params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const list = await parentService.getParents(req.user.collegeId, { page, limit });
     return res.success(list, 'Parents fetched');
   } catch (err) {
     return next(err);

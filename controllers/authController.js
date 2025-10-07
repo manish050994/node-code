@@ -1,6 +1,7 @@
 // controllers\authController.js (modified: added forgot, reset, enable2FA, verify2FA)
 const authService = require('../services/authService');
 
+
 exports.registerSuperAdmin = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
@@ -13,8 +14,8 @@ exports.registerSuperAdmin = async (req, res, next) => {
 
 exports.login = async (req, res, next) => {
   try {
-    const { email, password, collegeCode } = req.body;
-    const data = await authService.login({ email, password, collegeCode });
+    const { loginId, password } = req.body;
+    const data = await authService.login({ loginId, password });
     return res.success(data, 'Login successful');
   } catch (err) {
     return next(err);
@@ -23,7 +24,7 @@ exports.login = async (req, res, next) => {
 
 exports.forgotPassword = async (req, res, next) => {
   try {
-    await authService.forgotPassword(req.body.email);
+    await authService.forgotPassword(req.body.loginId);
     return res.success(null, 'Email sent');
   } catch (err) {
     return next(err);

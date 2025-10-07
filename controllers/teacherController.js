@@ -7,10 +7,14 @@ exports.getSampleCsv = async (req, res, next) => {
     const sampleData = [
       {
         name: 'Jane Smith',
-        loginId: 'jane.smith_teacher',
         employeeId: 'T001',
         email: 'jane.smith@example.com',
-        password: 'pass123',
+        password: 'teach123',
+        gender: 'female', // New
+        dob: '1980-01-01', // New (format YYYY-MM-DD)
+        profilePhoto: '/path/to/photo.jpg', // New (optional)
+        mobileNo: '9876543210', // New
+        category: 'general', // New
       },
       {
         name: 'Bob Johnson',
@@ -18,15 +22,17 @@ exports.getSampleCsv = async (req, res, next) => {
         employeeId: 'T002',
         email: 'bob.johnson@example.com',
         password: 'pass123',
+        gender: 'female', // New
+        dob: '1980-01-01', // New (format YYYY-MM-DD)
+        profilePhoto: '/path/to/photo.jpg', // New (optional)
+        mobileNo: '9876543210', // New
+        category: 'general', // New
       },
     ];
 
     const columns = [
-      'name',
-      'loginId',
-      'employeeId',
-      'email',
-      'password',
+      'name', 'employeeId', 'email', 'password',
+      'gender', 'dob', 'profilePhoto', 'mobileNo', 'category',
     ];
 
     stringify(sampleData, {

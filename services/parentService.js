@@ -4,61 +4,107 @@ const authService = require('./authService');
 const ApiError = require('../utils/ApiError');
 const { sendEmail } = require('../utils/email');
 const bcrypt = require('bcryptjs');
+const { generateAndSetLoginId } = require('./userService');
 
-// services/parentService.js
 exports.createParent = async (parentData, options = {}) => {
   const { transaction } = options;
+  const t = transaction || await db.sequelize.transaction();
   try {
-    const { name, email, phone, password, loginId, studentId, collegeId } = parentData;
+    const { name, email, phone, password, studentId, collegeId, gender } = parentData;
 
-    if (!email || !collegeId) {
-      throw ApiError.badRequest('Missing required parent fields: email or collegeId');
+    if (!name || !email || !collegeId) {
+      throw ApiError.badRequest('Missing required parent fields: name, email, collegeId');
     }
 
-    // Find parent by email in same college
+    // Normalize email for case-insensitive lookup
+    const normalizedEmail = email.toLowerCase();
+
+    // Find parent by email in same college (case-insensitive)
     let parentUser = await db.User.findOne({
-      where: { email, role: 'parent', collegeId },
+      where: {
+        email: { [db.Sequelize.Op.iLike]: normalizedEmail }, // Case-insensitive
+        role: 'parent',
+        collegeId,
+      },
       include: [{ model: db.Parent, as: 'Parent' }],
-      transaction,
+      transaction: t,
     });
 
     let parent;
     if (parentUser && parentUser.Parent) {
-      parent = parentUser.Parent; // reuse existing parent
-    } else {
+      parent = parentUser.Parent; // Reuse existing parent
+      console.log(`Reusing parent with ID: ${parent.id} for email: ${normalizedEmail}`); // Debug log
+      // Update studentId if provided and different
+      if (studentId && parent.studentId !== studentId) {
+        const student = await db.Student.findByPk(studentId, { transaction: t });
+        if (!student) throw ApiError.notFound(`Student with ID ${studentId} not found`);
+        await parent.update({ studentId }, { transaction: t });
+        console.log(`Updated parent ID ${parent.id} with studentId: ${studentId}`); // Debug log
+      }
+    } else if (parentUser && !parentUser.Parent) {
+      // User exists but no Parent record; create Parent
+      console.log(`Existing user found without Parent for email: ${normalizedEmail}, creating Parent`); // Debug log
       parent = await db.Parent.create(
-        { name, email, phone: phone || null, collegeId, studentId }, 
-        { transaction }
-      );
-
-      const hashedPassword = await bcrypt.hash(password || 'defaultPass123', 10);
-      parentUser = await db.User.create(
         {
-          loginId: loginId || (email.split('@')[0] + '_parent'),
           name,
-          email,
-          password: hashedPassword,
-          role: 'parent',
+          email: normalizedEmail,
+          phone: phone || null,
           collegeId,
-          parentId: parent.id,
+          studentId: studentId || null,
+          gender,
         },
-        { transaction }
+        { transaction: t }
       );
+      console.log(`Parent created with ID: ${parent.id}`); // Debug log
+      await parentUser.update({ parentId: parent.id }, { transaction: t });
+      console.log(`Updated user ID ${parentUser.id} with parentId: ${parent.id}`); // Debug log
+      await generateAndSetLoginId(parentUser, t);
+    } else {
+      // Create new User and Parent
+      console.log(`Creating parent user for email: ${normalizedEmail}`); // Debug log
+      parentUser = await authService.registerParent(
+        {
+          name,
+          email: normalizedEmail,
+          password: password || 'defaultPass123',
+          collegeId,
+        },
+        { transaction: t }
+      );
+      console.log(`Parent user created with ID: ${parentUser.id}`); // Debug log
+
+      console.log(`Creating parent with studentId: ${studentId || 'null'}`); // Debug log
+      parent = await db.Parent.create(
+        {
+          name,
+          email: normalizedEmail,
+          phone: phone || null,
+          collegeId,
+          studentId: studentId || null,
+          gender,
+        },
+        { transaction: t }
+      );
+      console.log(`Parent created with ID: ${parent.id}`); // Debug log
+
+      await parentUser.update({ parentId: parent.id }, { transaction: t });
+      console.log(`Updated user ID ${parentUser.id} with parentId: ${parent.id}`); // Debug log
+      await generateAndSetLoginId(parentUser, t);
     }
 
-    // Always link student to parent
-    if (studentId) {
-      const student = await db.Student.findByPk(studentId, { transaction });
-      if (!student) throw ApiError.badRequest(`Student with ID ${studentId} not found`);
-      await student.update({ parentId: parent.id }, { transaction });
-    }
-
+    if (!transaction) await t.commit();
     return { parent, user: parentUser };
   } catch (error) {
+    if (!transaction) await t.rollback();
+    console.error('Create parent error:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      errors: error.errors ? error.errors.map(e => e.message) : null,
+    }); // Enhanced error log
     throw ApiError.badRequest(`Failed to create/link parent: ${error.message}`);
   }
 };
-
 
 exports.getParents = async (collegeId, { page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;

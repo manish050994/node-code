@@ -20,44 +20,46 @@ exports.getSampleCsv = async (req, res, next) => {
     const sampleData = [
       {
         name: 'John Doe',
-        rollNo: '001',
-        courseId, // Use dynamic courseId
+        rollNo: 'RO001',
+        courseId,
         year: 1,
         section: 'A',
-        email: 'john.doe@example.com',
+        email: 'john.doe22@example.com',
         password: 'pass123',
+        gender: 'male', // New
+        motherName: 'Jane Doe', // New
+        fatherName: 'Jim Doe', // New
+        category: 'general', // New
         parentName: 'Parent Doe',
         parentEmail: 'parent.doe@example.com',
         parentPhone: '1234567890',
         parentPassword: 'parentPass123',
+        parentGender: 'male'
       },
       {
         name: 'Jane Roe',
-        rollNo: '002',
+        rollNo: 'RO002',
         courseId, // Use dynamic courseId
         year: 1,
         section: 'A',
-        email: 'jane.roe@example.com',
+        email: 'jane.roe33@example.com',
         password: 'pass123',
+        gender: 'male', // New
+        motherName: 'Jane Roe', // New
+        fatherName: 'Jim Roe', // New
+        category: 'general', // New
         parentName: 'Parent Roe',
         parentEmail: 'parent.roe@example.com',
         parentPhone: '0987654321',
         parentPassword: 'parentPass123',
+        parentGender: 'male'
       },
     ];
 
     const columns = [
-      'name',
-      'rollNo',
-      'courseId',
-      'year',
-      'section',
-      'email',
-      'password',
-      'parentName',
-      'parentEmail',
-      'parentPhone',
-      'parentPassword',
+      'name', 'rollNo', 'courseId', 'year', 'section', 'email', 'password',
+      'gender', 'motherName', 'fatherName', 'category', // New fields
+      'parentName', 'parentEmail', 'parentPhone', 'parentPassword', 'parentGender'
     ];
 
     stringify(sampleData, {
@@ -101,20 +103,12 @@ exports.bulkCreateStudents = async (req, res, next) => {
       });
     }
 
-    const { students, failedRows } = await studentService.bulkCreateStudents(
-      req.file.path,
-      req.user.collegeId
-    );
+    
+    // Call service
+    const result = await studentService.bulkCreateStudents(req.file.path, req.user.collegeId);
 
-    return res.status(200).json({
-      status: 1,
-      message: 'Bulk student creation completed',
-      data: {
-        created: students,
-        failed: failedRows
-      },
-      error: failedRows.length > 0 ? 'Some rows failed' : null
-    });
+
+    return res.status(200).json(result);
   } catch (err) {
     return res.status(500).json({
       status: 0,
