@@ -5,20 +5,39 @@ const ApiError = require('../utils/ApiError');
 // === Add Mark (same as before) ===
 exports.addMark = async (payload, teacherId, collegeId) => {
   try {
-    return await db.Mark.create({
-      studentId: payload.studentId,
-      subjectId: payload.subjectId,
-      assignmentId: payload.assignmentId || null,
-      examId: payload.examId || null,
-      marks: payload.marks,
-      totalMarks: payload.totalMarks || null,
-      grade: payload.grade || null,
-      remarks: payload.remarks || null,
-      teacherId,
-      collegeId,
-    });
+    if (Array.isArray(payload.marks)) {
+      // Bulk insert
+      const data = payload.marks.map((m) => ({
+        studentId: m.studentId,
+        subjectId: m.subjectId,
+        assignmentId: m.assignmentId || null,
+        examId: m.examId || null,
+        marks: m.marks,
+        totalMarks: m.totalMarks || null,
+        grade: m.grade || null,
+        remarks: m.remarks || null,
+        teacherId,
+        collegeId,
+      }));
+
+      return await db.Mark.bulkCreate(data, { returning: true });
+    } else {
+      // Single insert
+      return await db.Mark.create({
+        studentId: payload.studentId,
+        subjectId: payload.subjectId,
+        assignmentId: payload.assignmentId || null,
+        examId: payload.examId || null,
+        marks: payload.marks,
+        totalMarks: payload.totalMarks || null,
+        grade: payload.grade || null,
+        remarks: payload.remarks || null,
+        teacherId,
+        collegeId,
+      });
+    }
   } catch (err) {
-    throw ApiError.badRequest(`Failed to add mark: ${err.message}`);
+    throw ApiError.badRequest(`Failed to add mark(s): ${err.message}`);
   }
 };
 
