@@ -55,3 +55,29 @@ exports.deleteSubject = async ({ id }) => {
     throw ApiError.badRequest(`Failed to delete subject: ${error.message}`);
   }
 };
+
+exports.getSubjectsByCourse = async (courseId, collegeId) => {
+  if (!courseId) throw ApiError.badRequest('courseId is required');
+
+  const course = await db.Course.findOne({
+    where: { id: courseId, collegeId },
+    include: [
+      {
+        model: db.Subject,
+        as: 'Subjects',
+        through: { attributes: [] },
+        include: [
+          { model: db.Teacher, as: 'Teacher', attributes: ['id', 'name'] }
+        ]
+      }
+    ]
+  });
+
+  if (!course) throw ApiError.notFound('Course not found');
+
+  return {
+    courseId: course.id,
+    courseName: course.name,
+    subjects: course.Subjects || []
+  };
+};

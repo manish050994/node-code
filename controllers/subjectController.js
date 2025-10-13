@@ -38,3 +38,13 @@ exports.deleteSubject = async (req, res, next) => {
     return next(err);
   }
 };
+
+exports.getSubjectsByCourse = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const subjects = await subjectService.getSubjectsByCourse(courseId, req.user.collegeId);
+    return res.success(subjects, 'Subjects fetched for course');
+  } catch (err) {
+    return next(err);
+  }
+};
