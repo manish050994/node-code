@@ -155,25 +155,32 @@ exports.listColleges = async ({ page = 1, limit = 10 } = {}) => {
   };
 };
 
-
 exports.deleteCollege = async ({ id, actor }) => {
+  if (!id) throw ApiError.badRequest('Invalid college ID');
+
   const t = await db.sequelize.transaction();
   try {
-    const college = await db.College.findOne({ where: { id }, transaction: t });
+    const college = await db.College.findByPk(id, { transaction: t });
     if (!college) throw ApiError.notFound('College not found');
-    await college.destroy({ transaction: t });
-    await db.Log.create({
-      actor: actor || 'system',
-      action: 'Deleted college',
-      target: college.name,
-      collegeId: college.id,
-      at: new Date(),
-    }, { transaction: t });
+
+    // ✅ Delete all users associated with this college
+    await db.User.destroy({
+      where: { collegeId: id },
+      transaction: t,
+    });
+
+    // ✅ Delete the college itself
+    await db.College.destroy({
+      where: { id },
+      transaction: t,
+    });
+
     await t.commit();
-    return { message: 'College deleted' };
-  } catch (error) {
+
+    return { id, deletedBy: actor };
+  } catch (err) {
     await t.rollback();
-    throw ApiError.badRequest(`Failed to delete college: ${error.message}`);
+    throw ApiError.badRequest(`Failed to delete college: ${err.message}`);
   }
 };
 
