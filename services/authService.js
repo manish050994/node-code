@@ -264,6 +264,34 @@ exports.login = async ({ loginId, password }) => {
     }
   }
 
+  if (user.role === 'student') {
+    const student = await db.Student.findOne({
+      where: { id: user.studentId },
+      include: [
+        {
+          model: db.Course,
+          as: 'Course',
+          attributes: ['id', 'name', 'code', 'collegeId'],
+        },
+      ],
+    });
+
+    if (student) {
+      responseUser.class = {
+        course: student.Course ? {
+          id: student.Course.id,
+          name: student.Course.name,
+          code: student.Course.code,
+          collegeId: student.Course.collegeId,
+        } : null,
+        year: student.year,
+        section: student.section,
+      };
+    } else {
+      responseUser.class = null;
+    }
+  }
+
 
   return { token, user: responseUser };
 };
