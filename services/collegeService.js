@@ -91,19 +91,71 @@ exports.toggleCollege = async ({ id, actor }) => {
 };
 
 exports.listColleges = async ({ page = 1, limit = 10 } = {}) => {
-  // Validate page and limit
   const parsedPage = parseInt(page);
   const parsedLimit = parseInt(limit);
+
   if (isNaN(parsedPage) || parsedPage < 1) throw ApiError.badRequest('Page must be a positive integer');
   if (isNaN(parsedLimit) || parsedLimit < 1) throw ApiError.badRequest('Limit must be a positive integer');
 
   const offset = (parsedPage - 1) * parsedLimit;
+
   const { rows, count } = await db.College.findAndCountAll({
     offset,
     limit: parsedLimit,
+    order: [['createdAt', 'DESC']],
+    include: [
+      {
+        model: db.User,
+        where: { role: 'collegeadmin' },
+        attributes: ['loginId', 'email', 'name'],
+        required: false,
+      },
+    ],
   });
-  return { colleges: rows, total: count, page: parsedPage, limit: parsedLimit };
+
+  const formattedColleges = rows.map(college => {
+    const admin = college.Users && college.Users.length > 0 ? college.Users[0] : null;
+
+    // ✅ Combine address fields safely
+    const addressParts = [
+      college.street,
+      college.city,
+      college.state,
+      college.country,
+      college.pincode ? `- ${college.pincode}` : null,
+    ].filter(Boolean); // remove null/undefined values
+
+    const address = addressParts.join(', ');
+
+    return {
+      id: college.id,
+      name: college.name,
+      code: college.code,
+      shortName: college.shortName,
+      type: college.type,
+      address: address || null, // ✅ single address field
+      contactNo: college.contactNo,
+      email: college.email,
+      signature: college.signature,
+      stamp: college.stamp,
+      status: college.status,
+      createdAt: college.createdAt,
+      updatedAt: college.updatedAt,
+      features: college.features,
+      adminLoginId: admin ? admin.loginId : null,
+      adminEmail: admin ? admin.email : null,
+      adminName: admin ? admin.name : null,
+    };
+  });
+
+  return {
+    colleges: formattedColleges,
+    total: count,
+    page: parsedPage,
+    limit: parsedLimit,
+  };
 };
+
 
 exports.deleteCollege = async ({ id, actor }) => {
   const t = await db.sequelize.transaction();
