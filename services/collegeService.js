@@ -135,15 +135,14 @@ exports.listColleges = async ({ page = 1, limit = 10 } = {}) => {
       type: college.type,
       address: address || null, // ✅ single address field
       contactNo: college.contactNo,
-      email: college.email,
+      email: admin ? admin.email : college.email ,
       signature: college.signature,
       stamp: college.stamp,
       status: college.status,
       createdAt: college.createdAt,
       updatedAt: college.updatedAt,
       features: college.features,
-      adminLoginId: admin ? admin.loginId : null,
-      adminEmail: admin ? admin.email : null,
+      loginId: admin ? admin.loginId : null,
       adminName: admin ? admin.name : null,
     };
   });
