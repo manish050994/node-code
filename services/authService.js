@@ -293,6 +293,42 @@ exports.login = async ({ loginId, password }) => {
   }
 
 
+  if (user.role === 'parent') {
+    const parent = await db.Parent.findOne({
+      where: { id: user.parentId },
+      include: [
+        {
+          model: db.Student,
+          include: [
+            {
+              model: db.Course,
+              attributes: ['id', 'name', 'code'],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (parent) {
+      responseUser.students = parent.Students.map(student => ({
+        id: student.id,
+        name: student.name,
+        rollNo: student.rollNo,
+        year: student.year,
+        section: student.section,
+        gender: student.gender,
+        course: student.Course ? {
+          id: student.Course.id,
+          name: student.Course.name,
+          code: student.Course.code,
+        } : null,
+      }));
+    } else {
+      responseUser.students = [];
+    }
+  }
+
+
   return { token, user: responseUser };
 };
 
