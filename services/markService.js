@@ -78,8 +78,6 @@ exports.getMarks = async (filter, user, { page = 1, limit = 10 }) => {
   return { marks: marksWithPercentage, total: count, page, limit };
 };
 
-
-
 exports.getMarksByCourse = async (courseId, collegeId, options = { page: 1, limit: 10 }) => {
   const { page, limit } = options;
 
@@ -111,3 +109,68 @@ exports.getMarksByCourse = async (courseId, collegeId, options = { page: 1, limi
 
   return { marks: marksWithPercentage, total: count, page, limit };
 };
+
+exports.getStudentParentCheck = async (studentId, parentId) => {
+  return await db.Student.findOne({
+    where: { id: studentId, parentId },
+  });
+};
+
+exports.getReportCard = async (studentId, collegeId) => {
+  const student = await db.Student.findOne({
+    where: { id: studentId, collegeId },
+    attributes: ['id', 'name', 'rollNo', 'year', 'section'],
+    include: [
+      { model: db.Course, attributes: ['id', 'name'] },
+      { 
+        model: db.Fee, 
+        attributes: ['id', 'amount', 'status'], // use 'status' instead of 'feesPaid'
+      },
+      { 
+        model: db.Mark, 
+        attributes: ['id', 'marks', 'totalMarks', 'grade', 'remarks'],
+        include: [
+          { model: db.Subject, attributes: ['id', 'name'] },
+          { model: db.Exam, attributes: ['id', 'name', 'examDate'] },
+          { model: db.Assignment, attributes: ['id', 'title'] },
+        ],
+        order: [['examId', 'ASC'], ['subjectId', 'ASC']],
+      }
+    ]
+  });
+
+  if (!student) throw new Error('Student not found');
+
+  // Determine if all fees are fully paid
+  const feesPaid = student.Fees.every(f => f.status === 'paid');
+
+  // Build marks report
+  const marks = student.Marks.map(m => {
+    const percentage = (m.totalMarks && m.marks != null) 
+      ? ((m.marks / m.totalMarks) * 100).toFixed(2) 
+      : null;
+    
+    return {
+      subject: m.Subject?.name || null,
+      exam: m.Exam?.name || null,
+      assignment: m.Assignment?.title || null,
+      marks: m.marks,
+      totalMarks: m.totalMarks,
+      grade: m.grade,
+      percentage,
+      remarks: m.remarks
+    };
+  });
+
+  return {
+    studentId: student.id,
+    name: student.name,
+    rollNo: student.rollNo,
+    course: student.Course?.name || null,
+    year: student.year,
+    section: student.section,
+    feesPaid,
+    marks
+  };
+};
+

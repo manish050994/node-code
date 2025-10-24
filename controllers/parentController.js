@@ -52,3 +52,19 @@ exports.deleteParent = async (req, res, next) => {
     return next(err);
   }
 };
+
+
+exports.getStudentsProgress = async (req, res, next) => {
+  try {
+    const parentId = req.user.parentId;
+    const progress = await parentService.getStudentsProgress(parentId);
+    res.status(200).json({
+      data: progress,
+      message: 'Student progress fetched successfully',
+      error: null,
+      status: true
+    });
+  } catch (err) {
+    next(err);
+  }
+};

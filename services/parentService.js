@@ -146,3 +146,56 @@ exports.deleteParent = async (id) => {
     throw ApiError.badRequest(`Failed to delete parent: ${error.message}`);
   }
 };
+
+
+
+exports.getStudentsProgress = async (parentId) => {
+  // Fetch students of this parent
+  const students = await db.Student.findAll({
+    where: { parentId },
+    include: [
+      { model: db.Course, attributes: ['id', 'name'] },
+      { 
+        model: db.Mark,
+        attributes: ['id', 'marks', 'totalMarks', 'grade', 'remarks'],
+        include: [{ model: db.Subject, attributes: ['id', 'name'] }]
+      },
+      { 
+        model: db.Attendance,
+        attributes: ['id', 'date', 'status']
+      },
+      { 
+        model: db.Fee,
+        attributes: ['id', 'amount', 'status', 'dueDate', 'paidAt']
+      }
+    ]
+  });
+
+  if (!students || students.length === 0) {
+    throw ApiError.notFound('No students found for this parent');
+  }
+
+  // Format the response
+  return students.map(student => ({
+    studentId: student.id,
+    name: student.name,
+    rollNo: student.rollNo,
+    course: student.Course?.name || null,
+    marks: student.Marks.map(mark => ({
+      subject: mark.Subject.name,
+      marksObtained: mark.marksObtained,
+      totalMarks: mark.totalMarks
+    })),
+    attendance: student.Attendances.map(att => ({
+      date: att.date,
+      status: att.status
+    })),
+    fees: student.Fees.map(fee => ({
+      feeId: fee.id,
+      amount: fee.amount,
+      status: fee.status,
+      dueDate: fee.dueDate,
+      paidAt: fee.paidAt
+    }))
+  }));
+};

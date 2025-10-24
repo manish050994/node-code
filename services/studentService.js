@@ -278,6 +278,12 @@ exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
     include: [
       { model: db.Course, as: 'Course' },
       { model: db.Parent, as: 'Parent' },
+      {
+        model: db.User,
+        as: 'User',
+        attributes: ['id', 'loginId', 'email', 'role'], // 👈 include loginId here
+        required: false,
+      },
     ],
     offset,
     limit,
@@ -287,12 +293,30 @@ exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
 
 exports.getStudent = async ({ id }) => {
   const student = await db.Student.findOne({
-    where: { id },
-    include: [
-      { model: db.Course, as: 'Course' },
-      { model: db.Parent, as: 'Parent' },
-    ],
-  });
+      where: { id },
+      include: [
+        { model: db.Course, as: 'Course' },
+        {
+          model: db.Parent,
+          as: 'Parent',
+          required: false, // Parent is optional
+          include: [
+            {
+              model: db.User,
+              as: 'User',
+              attributes: ['id', 'loginId', 'email', 'role'],
+              required: false, // Parent's User is optional
+            },
+          ],
+        },
+        {
+          model: db.User,
+          as: 'User',
+          attributes: ['id', 'loginId', 'email', 'role'],
+          required: false, // Student's User is optional
+        },
+      ],
+    });
   if (!student) throw ApiError.notFound('Student not found');
   return student;
 };

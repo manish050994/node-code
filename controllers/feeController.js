@@ -68,3 +68,27 @@ exports.handlePaymentCallback = async (req, res, next) => {
     return next(err);
   }
 };
+
+exports.getParentFeesStatus = async (req, res, next) => {
+  try {
+    const parentId = req.user.parentId; // Assuming user object has parentId
+    const data = await feeService.getParentFeesStatus(parentId);
+    return res.status(200).json({ data, message: 'Fees status retrieved successfully', error: null, status: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.generatePaymentSlip = async (req, res, next) => {
+  try {
+    const parentId = req.user.parentId;
+    const { studentId } = req.params;
+
+    const pdf = await feeService.generatePaymentSlip(parentId, studentId);
+
+    res.contentType('application/pdf');
+    res.send(pdf);
+  } catch (err) {
+    next(err);
+  }
+};

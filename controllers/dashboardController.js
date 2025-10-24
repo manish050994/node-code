@@ -39,7 +39,7 @@ exports.getStudentDashboard = async (req, res, next) => {
 
 exports.getParentDashboard = async (req, res, next) => {
   try {
-    const data = await dashboardService.getParentDashboard(req.user.studentId);
+    const data = await dashboardService.getParentDashboard(req.user.parentId);
     return res.success(data, 'Parent Dashboard');
   } catch (err) {
     return next(err);

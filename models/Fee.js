@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
     collegeId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Colleges', key: 'id' } },
   }, {
     timestamps: true,
-    tableName: 'Fees',
+    tableName: 'Fees'
   });
   return Fee;
 };

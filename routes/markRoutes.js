@@ -1,7 +1,7 @@
 // routes/markRoutes.js
 const express = require('express');
 const router = express.Router();
-const { addMark, getMarks, getExamMarks, getAssignmentMarks, getMarksByCourse} = require('../controllers/markController');
+const { addMark, getMarks, getExamMarks, getAssignmentMarks, getMarksByCourse, getReportCard} = require('../controllers/markController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 
 // Generic add mark
@@ -17,5 +17,9 @@ router.get('/exams', protect, authorize('teacher','student','parent'), featureAu
 router.get('/assignments', protect, authorize('teacher','student','parent'), featureAuthorize('assessment'), getAssignmentMarks);
 
 router.get('/course/:courseId', protect, authorize('teacher','student','parent'), featureAuthorize('assessment'), getMarksByCourse);
+
+// Get report card
+router.get('/report/:studentId', protect, authorize('teacher','student','parent'), featureAuthorize('assessment'), getReportCard);
+
 
 module.exports = router;

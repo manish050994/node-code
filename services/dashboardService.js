@@ -45,20 +45,51 @@ exports.getStudentDashboard = async (studentId) => {
   return { course: student.Course, attendance };
 };
 
-exports.getParentDashboard = async (studentId) => {
-  const student = await db.Student.findOne({
-    where: { id: studentId },
-    include: [{ model: db.Course, as: 'Course' }],
+exports.getParentDashboard = async (parentId) => {
+  // Fetch all students for the parent
+  const students = await db.Student.findAll({
+    where: { parentId },
+    include: [{ model: db.Course, as: 'Course', attributes: ['id', 'name'] }],
   });
-  if (!student) throw ApiError.notFound('Student not found');
-  const attendance = await db.Attendance.count({
-    where: { studentId, status: 'present' },
-  });
-  const grades = await db.Mark.findAll({
-    where: { studentId },
-  });
-  const feeStatus = await db.Fee.findAll({
-    where: { studentId },
-  });
-  return { child: student, attendance, grades, feeStatus };
+
+  if (!students || students.length === 0) {
+    throw ApiError.notFound('No students found for this parent');
+  }
+
+  // For each student, fetch attendance, grades, and feeStatus
+  const dashboardData = await Promise.all(
+    students.map(async (student) => {
+      // Count total present days
+      const attendanceCount = await db.Attendance.count({
+        where: { studentId: student.id, status: 'present' },
+      });
+
+      // Fetch marks
+      const grades = await db.Mark.findAll({
+        where: { studentId: student.id },
+        attributes: ['subjectId', 'marks'],
+      });
+
+      // Fetch fees and map to month-wise status (assuming dueDate is the fee month)
+      const fees = await db.Fee.findAll({
+        where: { studentId: student.id },
+        attributes: ['amount', 'status', 'dueDate'],
+      });
+
+      const feeStatus = fees.map(fee => ({
+        month: fee.dueDate ? fee.dueDate.toLocaleString('default', { month: 'long' }) : 'N/A',
+        paid: fee.status === 'paid',
+        amount: fee.amount,
+      }));
+
+      return {
+        student,
+        attendance: attendanceCount,
+        grades,
+        feeStatus,
+      };
+    })
+  );
+
+  return dashboardData;
 };

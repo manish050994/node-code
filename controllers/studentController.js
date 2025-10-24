@@ -160,11 +160,47 @@ exports.deleteStudent = async (req, res, next) => {
 exports.generateIdCard = async (req, res, next) => {
   try {
     const html = await studentService.getIdCardHtml(parseInt(req.params.id));
-    const pdf = generatePdf(html);
+    const pdf = await generatePdf(html);
     res.contentType('application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=student_${req.params.id}_idcard.pdf`);
     res.send(pdf);
   } catch (err) {
     return next(err);
+  }
+};
+
+exports.getOwnIdCard = async (req, res, next) => {
+  try {
+    // Ensure user is a student
+    if (req.user.role !== 'student' || !req.user.studentId) {
+      return res.status(403).json({
+        status: 0,
+        message: 'Access denied. Only students can view their own ID card.',
+        data: null,
+        error: 'Forbidden'
+      });
+    }
+
+    const studentId = req.user.studentId;
+    const student = await studentService.getStudent({ id: studentId });
+
+    if (!student) {
+      return res.status(404).json({
+        status: 0,
+        message: 'Student not found.',
+        data: null,
+        error: 'Not Found'
+      });
+    }
+
+    // Generate ID card PDF
+    const pdfBuffer = await generatePdf(student);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=student_${student.id}_idcard.pdf`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
   }
 };
 

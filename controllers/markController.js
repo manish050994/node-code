@@ -77,3 +77,24 @@ exports.getMarksByCourse = async (req, res) => {
     res.status(400).json({ data: null, message: err.message, error: err, status: 400 });
   }
 };
+
+
+exports.getReportCard = async (req, res, next) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+
+    // Students and parents can only access their own student's report
+    if (req.user.role === 'student' && req.user.studentId !== studentId)
+      return res.status(403).json({ data: null, message: 'Access denied', status: false });
+    if (req.user.role === 'parent' && req.user.parentId) {
+      const student = await markService.getStudentParentCheck(studentId, req.user.parentId);
+      if (!student) return res.status(403).json({ data: null, message: 'Access denied', status: false });
+    }
+
+    const report = await markService.getReportCard(studentId, req.user.collegeId);
+
+    return res.status(200).json({ data: report, message: 'Report card fetched', status: true });
+  } catch (err) {
+    return next(err);
+  }
+};

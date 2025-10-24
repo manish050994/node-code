@@ -10,7 +10,8 @@ const {
     deleteStudent, 
     bulkCreateStudents, 
     generateIdCard,
-    exportStudents 
+    exportStudents,
+    getOwnIdCard
     } = require('../controllers/studentController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/multer');
@@ -25,5 +26,8 @@ router.put('/:id', protect, authorize('collegeadmin'),featureAuthorize('studentM
 router.delete('/:id', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), deleteStudent);
 router.get('/:id/idcard', protect, authorize('collegeadmin'),featureAuthorize('studentManagement'), generateIdCard);
 router.get('/export', protect, authorize('collegeadmin'), featureAuthorize('studentManagement'), exportStudents);
+router.get('/me/id_card', protect, authorize('student'), featureAuthorize('studentManagement'), getOwnIdCard);
+
+
 
 module.exports = router;
