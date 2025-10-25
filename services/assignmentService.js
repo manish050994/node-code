@@ -109,3 +109,46 @@ exports.getSubmissions = async (id, teacherId, { page = 1, limit = 10 }) => {
   });
   return { submissions: rows, total: count, page, limit };
 };
+
+
+exports.getAssignmentsBySubject = async (user, subjectId, { page = 1, limit = 10 }) => {
+  const offset = (page - 1) * limit;
+
+  if (user.role !== 'student') {
+    throw new ApiError(403, 'Only students can view assignments by subject');
+  }
+
+  const student = await db.Student.findOne({ where: { id: user.studentId } });
+  if (!student) throw new ApiError(404, 'Student not found');
+
+  const filter = {
+    collegeId: user.collegeId,
+    courseId: student.courseId,
+    subjectId,
+  };
+
+  const { rows, count } = await db.Assignment.findAndCountAll({
+    where: filter,
+    include: [
+      { model: db.AssignmentQuestion },
+      {
+        model: db.Subject,
+        attributes: ['id', 'name', 'code'],
+      },
+      {
+        model: db.Teacher,
+        attributes: ['id', 'name'],
+      },
+    ],
+    offset,
+    limit,
+    order: [['createdAt', 'DESC']],
+  });
+
+  return {
+    assignments: rows,
+    total: count,
+    page: Number(page),
+    limit: Number(limit),
+  };
+};

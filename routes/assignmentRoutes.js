@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { createAssignmentWithQuestions, getAssignments, submitAssignment, getSubmissions } = require('../controllers/assignmentController');
+const { createAssignmentWithQuestions, getAssignments, submitAssignment, getSubmissions, getAssignmentsBySubject } = require('../controllers/assignmentController');
 const { addQuestion, uploadSolution, getQuestions, getSolution } = require('../controllers/questionController');
 const { protect, authorize, featureAuthorize } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/multer');
@@ -59,5 +59,8 @@ router.get('/:id/questions/:qid/solution', protect, authorize('teacher', 'studen
 
 router.post('/:id/submit', protect, authorize('student'), featureAuthorize('assignment'), upload.single('file'), submitAssignment);
 router.get('/:id/submissions', protect, authorize('teacher'), featureAuthorize('assignment'), getSubmissions);
+router.get('/subject/:subjectId', protect, authorize('student'), featureAuthorize('assignment'), getAssignmentsBySubject);
+
+
 
 module.exports = router;
