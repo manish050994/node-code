@@ -277,6 +277,7 @@ exports.login = async ({ loginId, password }) => {
     });
 
     if (student) {
+      responseUser.studentId = student.id;
       responseUser.class = {
         course: student.Course ? {
           id: student.Course.id,

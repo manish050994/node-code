@@ -38,6 +38,12 @@ temp/
 uploads/
 exports/
 id_card/
+studentProfile/
+teacherProfile/
+collegeProfile/
+collegeProfile/signature/
+collegeProfile/stamp/
+parentProfile/
 
 
 !exports/.gitkeep
