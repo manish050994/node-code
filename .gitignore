@@ -37,6 +37,7 @@ temp/
 # Uploads / attachments (optional)
 uploads/
 exports/
+id_card/
 
 
 !exports/.gitkeep

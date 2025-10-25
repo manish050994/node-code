@@ -3,14 +3,23 @@ const fs = require('fs');
 const path = require('path');
 
 
-exports.generatePdf = (student, outputPath = 'student_id_card.pdf') => {
+
+exports.generatePdf = (student, outputDir = 'id_card') => {
   return new Promise((resolve, reject) => {
+    // Ensure directory exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Create full file path
+    const filePath = path.join(outputDir, `${student.id}.pdf`);
+
     const doc = new PDFDocument({
       size: [350, 550], // ID card size
       margins: { top: 20, left: 20, right: 20, bottom: 20 },
     });
 
-    const stream = fs.createWriteStream(outputPath);
+    const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
     // === COLORS ===
@@ -78,9 +87,9 @@ exports.generatePdf = (student, outputPath = 'student_id_card.pdf') => {
 
     doc.end();
 
+    // Wait for write to finish, then read file
     stream.on('finish', () => {
-      // Wait until file fully written
-      resolve(fs.readFileSync(outputPath));
+      resolve(fs.readFileSync(filePath));
     });
 
     stream.on('error', (err) => reject(err));
