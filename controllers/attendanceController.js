@@ -92,6 +92,32 @@ exports.exportAttendance = async (req, res, next) => {
   }
 };
 
+exports.getAttendanceOverview = async (req, res, next) => {
+  try {
+    const role = req.user.role;
+    let result;
+
+    if (role === 'student') {
+      result = await attendanceService.getStudentAttendanceOverview({
+        studentId: req.user.studentId,
+        collegeId: req.user.collegeId,
+      });
+    } else if (role === 'parent') {
+      result = await attendanceService.getParentAttendanceOverview({
+        parentId: req.user.parentId,
+        collegeId: req.user.collegeId,
+      });
+    } else {
+      throw ApiError.forbidden('Access denied for this role');
+    }
+
+    return res.success(result, 'Attendance overview fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 exports.uploadOfflineAttendance = async (req, res, next) => {
   try {
     if (!req.file) throw ApiError.badRequest('No file uploaded');

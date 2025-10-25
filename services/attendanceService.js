@@ -140,3 +140,54 @@ exports.uploadOffline = async (filePath, collegeId) => {
       });
   });
 };
+
+exports.getStudentAttendanceOverview = async ({ studentId, collegeId }) => {
+  if (!studentId) throw ApiError.badRequest('Student ID required');
+
+  const total = await db.Attendance.count({ where: { studentId, collegeId } });
+  const present = await db.Attendance.count({ where: { studentId, collegeId, status: 'present' } });
+  const absent = await db.Attendance.count({ where: { studentId, collegeId, status: 'absent' } });
+  const late = await db.Attendance.count({ where: { studentId, collegeId, status: 'late' } });
+
+  const attendancePercentage = total > 0 ? Math.round((present / total) * 100) : 0;
+
+  return {
+    total,
+    present,
+    absent,
+    late,
+    attendancePercentage,
+  };
+};
+
+exports.getParentAttendanceOverview = async ({ parentId, collegeId }) => {
+  if (!parentId) throw ApiError.badRequest('Parent ID required');
+
+  const students = await db.Student.findAll({
+    where: { parentId, collegeId },
+    attributes: ['id', 'name'],
+  });
+
+  const overviews = await Promise.all(
+    students.map(async (student) => {
+      const total = await db.Attendance.count({ where: { studentId: student.id, collegeId } });
+      const present = await db.Attendance.count({ where: { studentId: student.id, collegeId, status: 'present' } });
+      const absent = await db.Attendance.count({ where: { studentId: student.id, collegeId, status: 'absent' } });
+      const late = await db.Attendance.count({ where: { studentId: student.id, collegeId, status: 'late' } });
+
+      const attendancePercentage = total > 0 ? Math.round((present / total) * 100) : 0;
+
+      return {
+        studentId: student.id,
+        studentName: student.name,
+        total,
+        present,
+        absent,
+        late,
+        attendancePercentage,
+      };
+    })
+  );
+
+  return overviews;
+};
