@@ -275,9 +275,21 @@ exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
   if (q.course) filter.courseId = q.course;
   const { rows, count } = await db.Student.findAndCountAll({
     where: filter,
+    order: [['createdAt', 'DESC']],
     include: [
       { model: db.Course, as: 'Course' },
-      { model: db.Parent, as: 'Parent' },
+      { model: db.Parent,
+          as: 'Parent',
+          required: false, // Parent is optional
+          include: [
+            {
+              model: db.User,
+              as: 'User',
+              attributes: ['id', 'loginId', 'email', 'role'],
+              required: false, // Parent's User is optional
+            },
+          ],
+       },
       {
         model: db.User,
         as: 'User',
@@ -294,6 +306,7 @@ exports.getStudents = async ({ q = {}, collegeId, page = 1, limit = 10 }) => {
 exports.getStudent = async ({ id }) => {
   const student = await db.Student.findOne({
       where: { id },
+      order: [['createdAt', 'DESC']],
       include: [
         { model: db.Course, as: 'Course' },
         {
@@ -321,17 +334,129 @@ exports.getStudent = async ({ id }) => {
   return student;
 };
 
-exports.updateStudent = async ({ id, payload }) => {
+exports.updateStudent = async ({ id, payload, req }) => {
   const t = await db.sequelize.transaction();
   try {
     const student = await db.Student.findOne({ where: { id }, transaction: t });
     if (!student) throw ApiError.notFound('Student not found');
-    await student.update(payload, { transaction: t });
+
+    const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+    // Prepare updated fields, including all possible student fields
+    const updates = {
+      name: payload.name || student.name,
+      rollNo: payload.rollNo || student.rollNo,
+      courseId: payload.courseId || student.courseId,
+      year: payload.year !== undefined ? payload.year : student.year,
+      section: payload.section || student.section,
+      email: payload.email ? payload.email.toLowerCase() : student.email,
+      gender: payload.gender || student.gender,
+      motherName: payload.motherName || student.motherName,
+      fatherName: payload.fatherName || student.fatherName,
+      category: payload.category || student.category,
+      feesPaid: payload.feesPaid !== undefined ? payload.feesPaid : student.feesPaid,
+      profilePic: payload.profilePic ? `studentProfile/${payload.profilePic}` : student.profilePic,
+      collegeId: student.collegeId, // Ensure collegeId is not changed
+      parentId: student.parentId, // Preserve parentId unless explicitly updated
+      contact: payload.contact || student.contact,
+      address: payload.address || student.address,
+    };
+
+    // Validate course if provided
+    if (payload.courseId) {
+      const course = await db.Course.findOne({
+        where: { id: payload.courseId, collegeId: student.collegeId },
+        transaction: t,
+      });
+      if (!course) throw ApiError.badRequest(`Invalid courseId: ${payload.courseId}`);
+    }
+
+    // Check for duplicate rollNo if updated
+    if (payload.rollNo && payload.rollNo !== student.rollNo) {
+      const existing = await db.Student.findOne({
+        where: { rollNo: payload.rollNo, collegeId: student.collegeId, courseId: student.courseId },
+        transaction: t,
+      });
+      if (existing) throw ApiError.conflict(`Duplicate rollNo ${payload.rollNo} in this course`);
+    }
+
+    // Update student
+    await student.update(updates, { transaction: t });
+
+    // Fetch updated student with associations
+    const updatedStudent = await db.Student.findOne({
+      where: { id },
+      include: [
+        { model: db.Course, as: 'Course' },
+        {
+          model: db.Parent,
+          as: 'Parent',
+          required: false,
+          include: [{ model: db.User, as: 'User', attributes: ['id', 'loginId', 'email', 'role'] }],
+        },
+        { model: db.User, as: 'User', attributes: ['id', 'loginId', 'email', 'role'] },
+      ],
+      transaction: t,
+    });
+
     await t.commit();
-    return student;
+
+    // Return student with profilePic URL
+    return {
+      ...updatedStudent.toJSON(),
+      profilePicUrl: updatedStudent.profilePic ? `${HOST}/${updatedStudent.profilePic}` : null,
+    };
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to update student: ${error.message}`);
+  }
+};
+
+exports.updateOwnProfile = async ({ id, payload, req }) => {
+  const t = await db.sequelize.transaction();
+  try {
+    const student = await db.Student.findOne({ where: { id }, transaction: t });
+    if (!student) throw ApiError.notFound('Student not found');
+
+    const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+    // Allowed fields for self-update
+    const allowedFields = ['name', 'email', 'contact', 'address', 'gender', 'motherName', 'fatherName', 'category'];
+
+    const updates = {};
+    allowedFields.forEach(field => {
+      if (payload[field] !== undefined) updates[field] = payload[field];
+    });
+
+    if (payload.profilePic) {
+      updates.profilePic = `studentProfile/${payload.profilePic}`;
+    }
+
+    await student.update(updates, { transaction: t });
+
+    const updatedStudent = await db.Student.findOne({
+      where: { id },
+      include: [
+        { model: db.Course, as: 'Course' },
+        {
+          model: db.Parent,
+          as: 'Parent',
+          include: [{ model: db.User, as: 'User', attributes: ['id', 'loginId', 'email', 'role'] }],
+        },
+        { model: db.User, as: 'User', attributes: ['id', 'loginId', 'email', 'role'] },
+      ],
+      transaction: t,
+    });
+
+    await t.commit();
+
+    return {
+      ...updatedStudent.toJSON(),
+      profilePicUrl: updatedStudent.profilePic ? `${HOST}/${updatedStudent.profilePic}` : null,
+    };
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to update profile: ${error.message}`);
   }
 };
 
@@ -358,3 +483,4 @@ exports.getIdCardHtml = async (id) => {
   if (!student) throw ApiError.notFound('Student not found');
   return `Name: ${student.name}\nRoll No: ${student.rollNo}\nCourse: ${student.Course.name}\nCollege ID: ${student.collegeId}`;
 };
+

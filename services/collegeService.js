@@ -2,19 +2,27 @@
 const db = require('../models');
 const authService = require('./authService');
 const ApiError = require('../utils/ApiError');
+const path = require('path');
+const fs = require('fs');
 
-exports.addCollege = async ({ name, code, address, admin, actor }) => {
+
+
+exports.addCollege = async (req,{ name, code, address, admin, actor, signatureFile, stampFile }) => {
   if (!name || !code || !admin || !admin.name || !admin.email || !admin.password) {
     throw ApiError.badRequest('name, code, and admin details (name, email, password) required');
   }
+  const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
   const t = await db.sequelize.transaction();
   try {
     const existingCollege = await db.College.findOne({ where: { code }, transaction: t });
     if (existingCollege) throw ApiError.conflict('College code already exists');
+
     const college = await db.College.create({
       name,
       code,
-      address,
+      ...address, // spread address fields
+      signature: signatureFile ? `collegeProfile/signature/${signatureFile}` : null,
+      stamp: stampFile ? `collegeProfile/stamp/${stampFile}` : null,
       status: true,
       features: {
         attendance: true,
@@ -33,13 +41,15 @@ exports.addCollege = async ({ name, code, address, admin, actor }) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     }, { transaction: t });
+
     const user = await authService.registerCollegeAdmin({
       name: admin.name,
       email: admin.email,
       password: admin.password,
       collegeId: college.id,
-      college, // Pass the college object to avoid re-query
+      college,
     }, { transaction: t });
+
     await db.Log.create({
       actor: actor || 'system',
       action: 'Added college and admin',
@@ -47,27 +57,48 @@ exports.addCollege = async ({ name, code, address, admin, actor }) => {
       collegeId: college.id,
       at: new Date(),
     }, { transaction: t });
+
     await t.commit();
-    return { college, user };
+
+    return {
+      college: {
+        ...college.toJSON(),
+        signatureUrl: college.signature ? `${HOST}/${college.signature}` : null,
+        stampUrl: college.stamp ? `${HOST}/${college.stamp}` : null,
+      },
+      user
+    };
+
   } catch (err) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to create college: ${err.message}`);
   }
 };
 
-exports.updateCollege = async ({ id, updates }) => {
-  const t = await db.sequelize.transaction();
+exports.updateCollege = async (req,{ id, updates, signatureFile, stampFile }) => {
+    const t = await db.sequelize.transaction();
   try {
     const college = await db.College.findOne({ where: { id }, transaction: t });
     if (!college) throw ApiError.notFound('College not found');
+    const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+    if (signatureFile) updates.signature = `collegeProfile/signature/${signatureFile}`;
+    if (stampFile) updates.stamp = `collegeProfile/stamp/${stampFile}`;
+
     await college.update(updates, { transaction: t });
     await t.commit();
-    return college;
+
+    return {
+      ...college.toJSON(),
+      signatureUrl: college.signature ? `${HOST}/${college.signature}` : null,
+      stampUrl: college.stamp ? `${HOST}/${college.stamp}` : null,
+    };
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to update college: ${error.message}`);
   }
 };
+
 
 exports.toggleCollege = async ({ id, actor }) => {
   const t = await db.sequelize.transaction();
@@ -211,3 +242,70 @@ exports.toggleFeature = async ({ id, feature }) => {
     throw ApiError.internal(`Failed to toggle feature: ${error.message}`);
   }
 };
+
+exports.getCollegeProfile = async (req, { collegeId }) => {
+  const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+  const college = await db.College.findOne({
+    where: { id: collegeId },
+    include: [
+      {
+        model: db.User,
+        where: { role: 'collegeadmin' },
+        attributes: ['loginId', 'name', 'email'],
+        required: false,
+      },
+    ],
+  });
+
+  if (!college) throw ApiError.notFound('College not found');
+
+  const admin = college.Users && college.Users.length > 0 ? college.Users[0] : null;
+
+  return {
+    id: college.id,
+    name: college.name,
+    code: college.code,
+    street: college.street,
+    city: college.city,
+    state: college.state,
+    country: college.country,
+    pincode: college.pincode,
+    contactNo: college.contactNo,
+    email: admin ? admin.email : college.email,
+    signatureUrl: college.signature ? `${HOST}/${college.signature}` : null,
+    stampUrl: college.stamp ? `${HOST}/${college.stamp}` : null,
+    features: college.features,
+    status: college.status,
+    adminName: admin ? admin.name : null,
+    loginId: admin ? admin.loginId : null,
+    createdAt: college.createdAt,
+    updatedAt: college.updatedAt,
+  };
+};
+
+
+exports.updateCollegeProfile = async (req, { collegeId, updates, signatureFile, stampFile }) => {
+  const t = await db.sequelize.transaction();
+  try {
+    const college = await db.College.findByPk(collegeId, { transaction: t });
+    if (!college) throw ApiError.notFound('College not found');
+
+    const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+    if (signatureFile) updates.signature = `collegeProfile/signature/${signatureFile}`;
+    if (stampFile) updates.stamp = `collegeProfile/stamp/${stampFile}`;
+
+    await college.update(updates, { transaction: t });
+    await t.commit();
+
+    return {
+      ...college.toJSON(),
+      signatureUrl: college.signature ? `${HOST}/${college.signature}` : null,
+      stampUrl: college.stamp ? `${HOST}/${college.stamp}` : null,
+    };
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to update college profile: ${error.message}`);
+  }
+};
+

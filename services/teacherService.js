@@ -94,18 +94,26 @@ exports.bulkCreateTeachers = async (filePath, collegeId) => {
   return { created, failedRows, createdCount: created.length, failedCount: failedRows.length };
 };
 
-
 exports.getTeachers = async (options = {}) => {
   const { collegeId, page = 1, limit = 10 } = options;
   if (!collegeId) throw ApiError.badRequest('collegeId required');
   const offset = (page - 1) * limit;
   const { rows, count } = await db.Teacher.findAndCountAll({
     where: { collegeId },
-    include: [{
+    include: [
+      {
       model: db.Subject,
       as: 'Subjects', // Ensure alias matches association
       through: { attributes: [] }, // Exclude junction table attributes
-    }],
+      },
+      {
+        model: db.User,
+        as: 'User',
+        attributes: ['loginId', 'email', 'name', 'role'],
+        required: false, // may not exist for all teachers
+      },
+  
+  ],
     offset,
     limit,
   });
@@ -200,3 +208,5 @@ exports.assignCourse = async (id, courseId) => {
     throw ApiError.badRequest(`Failed to assign course: ${error.message}`);
   }
 };
+
+

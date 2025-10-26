@@ -199,7 +199,10 @@ exports.login = async ({ loginId, password }) => {
     const tempToken = jwt.sign({ id: user.id, temp: true }, config.jwtSecret, { expiresIn: '5m' });
     return { require2FA: true, tempToken };
   }
-  const tokenPayload = { id: user.id, role: user.role, collegeId: user.collegeId || null, loginId: user.loginId };
+  const tokenPayload = { id: user.id, role: user.role, 
+                        collegeId: user.collegeId || null, loginId: user.loginId
+                        };
+
   const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
   
   // Prepare user response

@@ -1,11 +1,15 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const db = require('../models');
 
+exports.generatePdf = async (student, outputDir = 'id_card') => {
+  return new Promise(async (resolve, reject) => {
+    // Validate student object
+    if (!student || !student.id || !student.collegeId) {
+      return reject(new ApiError(400, 'Invalid student data: Missing id or collegeId'));
+    }
 
-
-exports.generatePdf = (student, outputDir = 'id_card') => {
-  return new Promise((resolve, reject) => {
     // Ensure directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -27,19 +31,25 @@ exports.generatePdf = (student, outputDir = 'id_card') => {
     const accentColor = '#F4B400';
     const textWhite = '#FFFFFF';
 
+    // === Fetch College Details ===
+    const college = await db.College.findOne({ where: { id: student.collegeId } });
+    if (!college) {
+      return reject(new ApiError(404, `College not found for collegeId: ${student.collegeId}`));
+    }
+
     // === BACKGROUND ===
     doc.rect(0, 0, 350, 550).fill(primaryColor);
 
-    // === HEADER ===
+    // === HEADER with Dynamic College Name ===
     doc
       .fillColor(textWhite)
       .font('Helvetica-Bold')
       .fontSize(20)
-      .text('BORCELLE', 20, 25)
-      .text('UNIVERSITY', 20, 45);
+      .text(college.name.toUpperCase(), 20, 25, { align: 'center', width: 310 })
+      .text('STUDENT IDENTITY CARD', 20, 45, { align: 'center', width: 310 });
 
     // === PHOTO ===
-    const defaultImage = path.resolve('./IMG-20250928-WA0024.jpg');
+    const defaultImage = path.resolve('./default-student.jpg'); // Ensure this path exists
     const imagePath = student.profilePic
       ? path.resolve(student.profilePic)
       : defaultImage;
@@ -65,16 +75,27 @@ exports.generatePdf = (student, outputDir = 'id_card') => {
       .fillColor(textWhite)
       .font('Helvetica')
       .fontSize(12)
-      .text(`ID Number : ${student.id}`, 40, 300)
-      .text(`Name      : ${student.name}`, 40, 320)
-      .text(`F's Name  : ${student.fatherName || 'N/A'}`, 40, 340)
-      .text(`Class     : ${student.className || 'High School'}`, 40, 360)
-      .text(`Contact   : ${student.contact || '+91 XXXXXXXX65'}`, 40, 380)
-      .text(`Address   : ${student.address || '123 Anywhere St, Any City'}`, 40, 400, { width: 260 });
+      .text(`ID Number    : ${student.id}`, 40, 300)
+      .text(`Name        : ${student.name}`, 40, 320)
+      .text(`Father's Name: ${student.fatherName || 'N/A'}`, 40, 340)
+      .text(`Course      : ${student.Course?.name || 'N/A'}`, 40, 360)
+      .text(`Contact     : ${student.contact || '+91 XXXXXXXX65'}`, 40, 380)
+      .text(`Address     : ${student.address || '123 Anywhere St, Any City'}`, 40, 400, { width: 260 });
 
-    // === SIGNATURE ===
-    doc.moveTo(60, 460).lineTo(250, 460).strokeColor('#FFFFFF').stroke();
-    doc.fillColor('#FFFFFF').fontSize(12).text('Signature', 120, 470);
+    // === SIGNATURE and STAMP ===
+    if (college.signature && fs.existsSync(path.resolve(college.signature))) {
+      doc.image(path.resolve(college.signature), 60, 430, { width: 50, height: 30 });
+    } else {
+      doc.fillColor('#FFFFFF').fontSize(10).text('No Signature', 60, 440);
+    }
+    doc.moveTo(60, 470).lineTo(250, 470).strokeColor('#FFFFFF').stroke();
+    doc.fillColor('#FFFFFF').fontSize(12).text('Authorized Signature', 100, 475);
+
+    if (college.stamp && fs.existsSync(path.resolve(college.stamp))) {
+      doc.image(path.resolve(college.stamp), 200, 430, { width: 50, height: 30 });
+    } else {
+      doc.fillColor('#FFFFFF').fontSize(10).text('No Stamp', 200, 440);
+    }
 
     // === FOOTER ===
     doc

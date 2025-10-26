@@ -38,8 +38,13 @@ app.use(express.json());
 app.use(responseFormatter);
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// Serve exports directory
 app.use('/exports', express.static(path.join(__dirname, 'exports')));
+app.use('/studentProfile', express.static(path.join(__dirname, 'studentProfile')));
+app.use('/teacherProfile', express.static(path.join(__dirname, 'teacherProfile')));
+app.use('/collegeProfile', express.static(path.join(__dirname, 'collegeProfile')));
+app.use('/parentProfile', express.static(path.join(__dirname, 'parentProfile')));
+app.use('/collegeProfile/signature', express.static(path.join(__dirname, 'collegeProfile/signature')));
+app.use('/collegeProfile/stamp', express.static(path.join(__dirname, 'collegeProfile/stamp')));
 
 // Routes
 app.use('/api/auth', authRoutes);

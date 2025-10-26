@@ -78,8 +78,6 @@ exports.getSampleCsv = async (req, res, next) => {
   }
 };
 
-
-
 exports.createStudent = async (req, res, next) => {
   try {
     const creator = req.user;
@@ -141,7 +139,11 @@ exports.getStudent = async (req, res, next) => {
 
 exports.updateStudent = async (req, res, next) => {
   try {
-    const updated = await studentService.updateStudent({ id: parseInt(req.params.id), payload: req.body });
+    const payload = req.body;
+    if (req.file) {
+      payload.profilePic = req.file.filename; // Set profilePic to the uploaded file's filename
+    }
+    const updated = await studentService.updateStudent({ id: parseInt(req.params.id), payload, req });
     return res.success(updated, 'Student updated');
   } catch (err) {
     return next(err);
@@ -159,10 +161,19 @@ exports.deleteStudent = async (req, res, next) => {
 
 exports.generateIdCard = async (req, res, next) => {
   try {
-    const html = await studentService.getIdCardHtml(parseInt(req.params.id));
-    const pdf = await generatePdf(html);
+    const studentId = parseInt(req.params.id);
+    if (isNaN(studentId)) {
+      return next(new ApiError(400, 'Invalid student ID'));
+    }
+
+    const student = await studentService.getStudent({ id: studentId });
+    if (!student) {
+      return next(new ApiError(404, 'Student not found'));
+    }
+
+    const pdf = await generatePdf(student);
     res.contentType('application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=student_${req.params.id}_idcard.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename=student_${studentId}_idcard.pdf`);
     res.send(pdf);
   } catch (err) {
     return next(err);
@@ -204,29 +215,50 @@ exports.getOwnIdCard = async (req, res, next) => {
   }
 };
 
-
-exports.exportStudents = async (req, res, next) => {
+exports.getStudentProfile = async (req, res, next) => {
   try {
-    const { students } = await studentService.getStudents({
-      q: req.query,
-      collegeId: req.user.collegeId,
-      page: 1,
-      limit: 1000, // Large limit for export
-      user: req.user,
+    // Ensure user is a student
+    if (req.user.role !== 'student' || !req.user.studentId) {
+      throw ApiError.forbidden('Access denied. Only students can view their own profile.');
+    }
+
+    const studentId = req.user.studentId;
+    const HOST = `${req.protocol}://${req.get('host')}`;
+    
+    const student = await studentService.getStudent({ id: studentId });
+    if (!student) throw ApiError.notFound('Student not found');
+
+    // Format response with profilePic URL
+    const response = {
+      ...student.toJSON(),
+      profilePicUrl: student.profilePic ? `${HOST}/${student.profilePic}` : null,
+    };
+
+    return res.success(response, 'Student profile fetched');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.updateOwnProfile = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'student' || !req.user.studentId) {
+      throw ApiError.forbidden('Access denied. Only students can update their own profile.');
+    }
+
+    const payload = req.body;
+    if (req.file) {
+      payload.profilePic = req.file.filename; // Save uploaded filename
+    }
+
+    const updated = await studentService.updateOwnProfile({
+      id: req.user.studentId,
+      payload,
+      req
     });
-    const data = students.map(s => ({
-      id: s.id,
-      name: s.name,
-      rollNo: s.rollNo,
-      email: s.email,
-      course: s.Course?.name,
-      parent: s.Parent?.name,
-    }));
-    const buffer = await exportToExcel(data, ['id', 'name', 'rollNo', 'email', 'course', 'parent'], 'Students');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="students.xlsx"');
-    res.send(buffer);
-  } catch (error) {
-    next(ApiError.internal('Failed to export students'));
+
+    return res.success(updated, 'Profile updated successfully');
+  } catch (err) {
+    return next(err);
   }
 };

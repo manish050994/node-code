@@ -110,7 +110,15 @@ exports.getParents = async (collegeId, { page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;
   const { rows, count } = await db.Parent.findAndCountAll({
     where: { collegeId },
-    include: [{ model: db.Student, as: 'Student' }],
+    include: [
+      { model: db.Student, as: 'Student' },
+      {
+        model: db.User,
+        as: 'User',
+        attributes: ['loginId', 'email', 'name', 'role'],
+        required: false, // may not exist for all teachers
+      },
+    ],
     offset,
     limit,
   });
