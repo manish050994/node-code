@@ -119,58 +119,101 @@ exports.getStudentParentCheck = async (studentId, parentId) => {
 exports.getReportCard = async (studentId, collegeId) => {
   const student = await db.Student.findOne({
     where: { id: studentId, collegeId },
-    attributes: ['id', 'name', 'rollNo', 'year', 'section'],
+    attributes: [
+      'id', 'name', 'rollNo', 'year', 'section', 'gender',
+      'motherName', 'fatherName', 'category', 'collegeId'
+    ],
     include: [
-      { model: db.Course, attributes: ['id', 'name'] },
-      { 
-        model: db.Fee, 
-        attributes: ['id', 'amount', 'status'], // use 'status' instead of 'feesPaid'
+      {
+        model: db.Course,
+        attributes: ['id', 'name']
       },
-      { 
-        model: db.Mark, 
+      {
+        model: db.Fee,
+        attributes: ['id', 'amount', 'status']
+      },
+      {
+        model: db.Mark,
         attributes: ['id', 'marks', 'totalMarks', 'grade', 'remarks'],
         include: [
-          { model: db.Subject, attributes: ['id', 'name'] },
-          { model: db.Exam, attributes: ['id', 'name', 'examDate'] },
-          { model: db.Assignment, attributes: ['id', 'title'] },
-        ],
-        order: [['examId', 'ASC'], ['subjectId', 'ASC']],
+          { model: db.Subject, attributes: ['id', 'name', 'code', 'teacherId'] },
+          { model: db.Exam, attributes: ['id', 'name', 'examDate', 'description', 'totalMarks'] }
+        ]
       }
     ]
   });
 
-  if (!student) throw new Error('Student not found');
-
-  // Determine if all fees are fully paid
-  const feesPaid = student.Fees.every(f => f.status === 'paid');
-
-  // Build marks report
-  const marks = student.Marks.map(m => {
-    const percentage = (m.totalMarks && m.marks != null) 
-      ? ((m.marks / m.totalMarks) * 100).toFixed(2) 
-      : null;
-    
+  if (!student) {
     return {
-      subject: m.Subject?.name || null,
-      exam: m.Exam?.name || null,
-      assignment: m.Assignment?.title || null,
-      marks: m.marks,
-      totalMarks: m.totalMarks,
-      grade: m.grade,
-      percentage,
-      remarks: m.remarks
+      status: false,
+      message: 'Student not found',
+      data: []
     };
+  }
+
+  // Check if all fees are paid
+  const feesPaid = student.Fees?.every(fee => fee.status === 'paid') || false;
+
+  // Group marks by exam
+  const examsMap = new Map();
+
+  student.Marks.forEach(mark => {
+    const exam = mark.Exam;
+    if (!exam) return;
+
+    if (!examsMap.has(exam.id)) {
+      examsMap.set(exam.id, {
+        examId: exam.id,
+        examName: exam.name,
+        examDate: exam.examDate,
+        description: exam.description,
+        totalMarks: exam.totalMarks,
+        subjects: []
+      });
+    }
+
+    const percentage =
+      mark.totalMarks && mark.marks != null
+        ? ((mark.marks / mark.totalMarks) * 100).toFixed(2)
+        : null;
+
+    examsMap.get(exam.id).subjects.push({
+      subjectId: mark.Subject?.id || null,
+      subjectName: mark.Subject?.name || null,
+      subjectCode: mark.Subject?.code || null,
+      marks: mark.marks,
+      totalMarks: mark.totalMarks,
+      percentage,
+      grade: mark.grade,
+      remarks: mark.remarks,
+      teacherId: mark.Subject?.teacherId || null
+    });
   });
 
-  return {
+  const exams = Array.from(examsMap.values());
+
+  const responseData = {
     studentId: student.id,
     name: student.name,
     rollNo: student.rollNo,
-    course: student.Course?.name || null,
     year: student.year,
     section: student.section,
+    gender: student.gender,
+    motherName: student.motherName,
+    fatherName: student.fatherName,
+    category: student.category,
+    collegeId: student.collegeId,
+    course: student.Course?.name || null,
     feesPaid,
-    marks
+    exams
+  };
+
+  return {
+    status: true,
+    message: 'Marks fetched',
+    data: [responseData]
   };
 };
+
+
 
