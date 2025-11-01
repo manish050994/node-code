@@ -147,6 +147,7 @@ db.Teacher.hasMany(db.Assignment, { foreignKey: 'teacherId', onDelete: 'RESTRICT
 db.Teacher.hasMany(db.Mark, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Teacher.hasMany(db.Timetable, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
 db.Teacher.hasMany(db.TeacherLeaveRequest, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });
+db.Teacher.hasOne(db.User, {foreignKey: 'teacherId',as: 'User',onDelete: 'CASCADE',});
 
 // TeacherLeaveRequest
 db.TeacherLeaveRequest.belongsTo(db.Teacher, { foreignKey: 'teacherId', onDelete: 'RESTRICT' });

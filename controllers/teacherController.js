@@ -53,8 +53,63 @@ exports.getSampleCsv = async (req, res, next) => {
 
 exports.createTeacher = async (req, res, next) => {
   try {
-    const { teacher, user } = await teacherService.createTeacher(req.body, req.user.collegeId); // Fixed: req.user.collegeId (integer)
-    return res.success({ teacher, user }, 'Teacher created'); // Password hashed in user
+    // If a file is uploaded, attach its relative path
+    if (req.file) {
+      req.body.profilePhoto = `/teacherProfile/${req.file.filename}`;
+    }
+
+    const { teacher, user } = await teacherService.createTeacher(req.body, req.user.collegeId);
+    return res.success({ teacher, user }, 'Teacher created');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.updateTeacher = async (req, res, next) => {
+  try {
+    const payload = req.body;
+    if (req.file) {
+      payload.profilePhoto = `/teacherProfile/${req.file.filename}`;
+    }
+    const t = await teacherService.updateTeacher({ id: parseInt(req.params.id), payload });
+    return res.success(t, 'Teacher updated');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getTeachers = async (req, res, next) => {
+  try {
+    const options = {
+      collegeId: req.user.collegeId,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 10,
+    };
+
+    const list = await teacherService.getTeachers(options, req);
+    return res.success(list, 'Teachers fetched');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getTeacherProfile = async (req, res, next) => {
+  try {
+    const teacher = await teacherService.getTeacherProfile(req.user.teacherId, req);
+    return res.success(teacher, 'Teacher profile fetched');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.updateTeacherProfile = async (req, res, next) => {
+  try {
+    const payload = req.body;
+    if (req.file) {
+      payload.profilePhoto = `/teacherProfile/${req.file.filename}`;
+    }
+    const teacher = await teacherService.updateTeacherProfile(req.user.teacherId, payload);
+    return res.success(teacher, 'Teacher profile updated');
   } catch (err) {
     return next(err);
   }
@@ -65,26 +120,6 @@ exports.bulkCreateTeachers = async (req, res, next) => {
     // Assume file upload middleware sets req.file.path
     const result = await teacherService.bulkCreateTeachers(req.file.path, req.user.collegeId);
     return res.success(result, 'Teachers bulk created');
-  } catch (err) {
-    return next(err);
-  }
-};
-
-exports.getTeachers = async (req, res, next) => {
-  try {
-    const options = { collegeId: req.user.collegeId }; // Fixed: req.user.collegeId
-    if (req.query.page || req.query.limit) options.page = parseInt(req.query.page); options.limit = parseInt(req.query.limit);
-    const list = await teacherService.getTeachers(options);
-    return res.success(list, 'Teachers fetched');
-  } catch (err) {
-    return next(err);
-  }
-};
-
-exports.updateTeacher = async (req, res, next) => {
-  try {
-    const t = await teacherService.updateTeacher({ id: parseInt(req.params.id), payload: req.body });
-    return res.success(t, 'Teacher updated');
   } catch (err) {
     return next(err);
   }

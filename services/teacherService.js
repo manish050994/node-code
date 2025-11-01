@@ -6,6 +6,7 @@ const csv = require('csv-parser');
 
 const ApiError = require('../utils/ApiError');
 
+
 exports.createTeacher = async (payload, collegeId, options = {}) => {
   if (!payload.name || !payload.employeeId || !payload.email || !payload.password) {
     throw ApiError.badRequest('name, employeeId, email, and password required');
@@ -74,7 +75,6 @@ exports.bulkCreateTeachers = async (filePath, collegeId) => {
       const result = await exports.createTeacher(row, collegeId, { transaction: t });
       await t.commit();
 
-      // Include loginId from created user
       created.push({
         row: index + 1,
         teacher: result.teacher,
@@ -82,11 +82,10 @@ exports.bulkCreateTeachers = async (filePath, collegeId) => {
       });
     } catch (err) {
       if (!t.finished) await t.rollback();
-      failedRows.push({ row: index + 1,teacher: row, reason: err.message });
+      failedRows.push({ row: index + 1, teacher: row, reason: err.message });
     }
   }
 
-  // Clean up file
   fs.unlink(filePath, (err) => {
     if (err) console.error('Failed to delete temp file:', err);
   });
@@ -94,30 +93,48 @@ exports.bulkCreateTeachers = async (filePath, collegeId) => {
   return { created, failedRows, createdCount: created.length, failedCount: failedRows.length };
 };
 
-exports.getTeachers = async (options = {}) => {
+exports.getTeachers = async (options = {}, req) => {
   const { collegeId, page = 1, limit = 10 } = options;
   if (!collegeId) throw ApiError.badRequest('collegeId required');
+
   const offset = (page - 1) * limit;
   const { rows, count } = await db.Teacher.findAndCountAll({
     where: { collegeId },
     include: [
       {
-      model: db.Subject,
-      as: 'Subjects', // Ensure alias matches association
-      through: { attributes: [] }, // Exclude junction table attributes
+        model: db.Subject,
+        as: 'Subjects',
+        through: { attributes: [] },
       },
       {
         model: db.User,
         as: 'User',
         attributes: ['loginId', 'email', 'name', 'role'],
-        required: false, // may not exist for all teachers
+        required: false,
       },
-  
-  ],
+    ],
     offset,
     limit,
   });
-  return { teachers: rows, total: count, page, limit };
+
+  const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+  const teachers = rows.map(t => ({
+    id: t.id,
+    name: t.name,
+    employeeId: t.employeeId,
+    email: t.email,
+    gender: t.gender,
+    dob: t.dob,
+    mobileNo: t.mobileNo,
+    category: t.category,
+    collegeId: t.collegeId,
+    profilePhoto: t.profilePhoto ? `${HOST}${t.profilePhoto}` : null,
+    user: t.User || null,
+    subjects: t.Subjects || [],
+  }));
+
+  return { teachers, total: count, page, limit };
 };
 
 exports.updateTeacher = async ({ id, payload }) => {
@@ -131,6 +148,44 @@ exports.updateTeacher = async ({ id, payload }) => {
   } catch (error) {
     await t.rollback();
     throw ApiError.badRequest(`Failed to update teacher: ${error.message}`);
+  }
+};
+
+exports.getTeacherProfile = async (teacherId, req) => {
+  if (!teacherId) throw ApiError.badRequest('Teacher ID missing');
+  const teacher = await db.Teacher.findOne({
+    where: { id: teacherId },
+    include: [{ model: db.User, as: 'User', attributes: ['loginId', 'email', 'name', 'role'] }],
+  });
+  if (!teacher) throw ApiError.notFound('Teacher not found');
+
+  const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+  return {
+    id: teacher.id,
+    name: teacher.name,
+    employeeId: teacher.employeeId,
+    email: teacher.email,
+    gender: teacher.gender,
+    dob: teacher.dob,
+    mobileNo: teacher.mobileNo,
+    category: teacher.category,
+    profilePhoto: teacher.profilePhoto ? `${HOST}${teacher.profilePhoto}` : null,
+    user: teacher.User || null,
+  };
+};
+
+exports.updateTeacherProfile = async (teacherId, payload) => {
+  const t = await db.sequelize.transaction();
+  try {
+    const teacher = await db.Teacher.findOne({ where: { id: teacherId }, transaction: t });
+    if (!teacher) throw ApiError.notFound('Teacher not found');
+    await teacher.update(payload, { transaction: t });
+    await t.commit();
+    return teacher;
+  } catch (error) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to update profile: ${error.message}`);
   }
 };
 
