@@ -9,6 +9,7 @@ const moment = require('moment');
 
 exports.createTimetable = async (payload, collegeId, transaction = null) => {
   try {
+    // Expect payload to include startTime and endTime (HH:mm)
     return await db.Timetable.create({ ...payload, collegeId }, { transaction });
   } catch (error) {
     throw new ApiError(500, `Failed to create timetable: ${error.message}`);
@@ -43,7 +44,7 @@ exports.getTimetable = async (user, page = 1, limit = 10) => {
     ],
     limit,
     offset,
-    order: [['day', 'ASC'], ['time', 'ASC']]
+    order: [['day', 'ASC'], ['startTime', 'ASC']]
   });
 
   let header = null;
@@ -61,9 +62,11 @@ exports.getTimetable = async (user, page = 1, limit = 10) => {
   };
 };
 
+// upcoming class updated to use startTime and endTime ranges
 exports.getUpcomingClass = async ({ user }) => {
   const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   let todayIndex = new Date().getDay();
+  // use local time 'HH:mm'
   let now = moment().format('HH:mm');
 
   for (let i = 0; i < 7; i++) {
@@ -88,22 +91,34 @@ exports.getUpcomingClass = async ({ user }) => {
       where.section = student.section;
     }
 
-    if (i === 0) {
-      where.time = { [Op.gt]: now };
-    }
-
-    const nextClass = await db.Timetable.findOne({
+    // fetch all classes for that day ordered by startTime
+    const classes = await db.Timetable.findAll({
       where,
       include: [
         { model: db.Subject, attributes: ['id', 'name', 'code'] },
         { model: db.Teacher, attributes: ['id', 'name', 'employeeId'] },
         { model: db.Course, attributes: ['id', 'name'] }
       ],
-      order: [['time', 'ASC']]
+      order: [['startTime', 'ASC']]
     });
 
-    if (nextClass) {
-      return nextClass;
+    if (!classes || classes.length === 0) continue;
+
+    // if same day (i===0), find first with startTime >= now OR currently ongoing (start <= now <= end)
+    for (const cls of classes) {
+      const s = cls.startTime || ''; // 'HH:mm'
+      const e = cls.endTime || '';   // 'HH:mm', maybe empty
+      // consider ongoing if endTime exists and now between s and e
+      const isOngoing = s && e && (moment(now, 'HH:mm').isBetween(moment(s, 'HH:mm'), moment(e, 'HH:mm'), null, '[]'));
+      const startsLater = s && (moment(s, 'HH:mm').isSameOrAfter(moment(now, 'HH:mm')));
+      if (i === 0) {
+        if (isOngoing || startsLater) {
+          return cls;
+        }
+      } else {
+        // for next days, return the earliest class
+        return cls;
+      }
     }
   }
 
@@ -159,10 +174,10 @@ exports.getClassesByClassTeacher = async (teacherId, collegeId, page = 1, limit 
   };
 };
 
+
 exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
 
-  // Step 1: get all subjectIds that teacher is teaching
   const teacherSubjects = await db.TeacherSubjects.findAll({
     where: { teacherId },
     attributes: ['subjectId']
@@ -173,7 +188,6 @@ exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limi
     return { courses: [], pagination: { page, limit, total: 0, pages: 0 } };
   }
 
-  // Step 2: find all course-subject mappings for these subjects in this college
   const { count, rows } = await db.CourseSubjects.findAndCountAll({
     where: { subjectId: { [Op.in]: subjectIds } },
     include: [
@@ -192,7 +206,6 @@ exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limi
     offset
   });
 
-  // Step 3: group subjects under their course
   const courseMap = {};
   rows.forEach(cs => {
     const courseId = cs.Course.id;
@@ -217,10 +230,10 @@ exports.getClassesBySubjectTeacher = async (teacherId, collegeId, page = 1, limi
   };
 };
 
+
 exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
 
-  // Get all subjectIds assigned to this teacher
   const teacherSubjects = await db.TeacherSubjects.findAll({
     where: { teacherId },
     attributes: ['subjectId']
@@ -231,7 +244,6 @@ exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 
     return { subjects: [], pagination: { page, limit, total: 0, pages: 0 } };
   }
 
-  // Fetch subjects that are mapped to courses as well
   const { count, rows } = await db.Subject.findAndCountAll({
     where: { id: { [Op.in]: subjectIds }, collegeId },
     include: [
@@ -248,7 +260,7 @@ exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 
       {
         model: db.Timetable,
         as: 'Timetables',
-        attributes: ['id', 'day', 'time', 'courseId', 'section', 'validFrom', 'validTo'],
+        attributes: ['id', 'day', 'startTime', 'endTime', 'courseId', 'section', 'validFrom', 'validTo'],
         include: [{ model: db.Course, attributes: ['id', 'name'] }],
         where: {
           [Op.and]: [
@@ -278,13 +290,25 @@ exports.getSubjectsWithClasses = async (teacherId, collegeId, page = 1, limit = 
 
 
 exports.exportCsv = async () => {
-  const fields = ['day', 'time', 'subjectId', 'teacherId', 'courseId', 'section', 'validFrom', 'validTo'];
+  // updated fields
+  const fields = ['day', 'startTime', 'endTime', 'subjectId', 'teacherId', 'courseId', 'section', 'validFrom', 'validTo'];
   const parser = new Parser({ fields });
   const sample = [
-    { day: 'Monday', time: '09:00', subjectId: 1, teacherId: 3, courseId: 1, section: 'A', validFrom: '2025-01-01', validTo: '2025-12-31' }
+    {
+      day: 'Monday',
+      startTime: '09:00',
+      endTime: '10:00',
+      subjectId: 1,
+      teacherId: 3,
+      courseId: 1,
+      section: 'A',
+      validFrom: '2025-01-01',
+      validTo: '2025-12-31'
+    }
   ];
   return parser.parse(sample);
 };
+
 
 exports.importCsv = async (filePath, collegeId) => {
   return new Promise((resolve, reject) => {
@@ -292,15 +316,31 @@ exports.importCsv = async (filePath, collegeId) => {
     fs.createReadStream(filePath)
       .pipe(csvParser())
       .on('data', row => {
-        if (!row.day || !row.time || !row.subjectId || !row.teacherId || !row.courseId) {
-          throw new ApiError(400, 'CSV row missing required fields: day, time, subjectId, teacherId, courseId');
+        // require startTime and endTime now
+        if (!row.day || !row.startTime || !row.endTime || !row.subjectId || !row.teacherId || !row.courseId) {
+          // use reject via error thrown inside stream will crash; better to push error to reject after stream ends
+          // but we'll throw ApiError to abort stream
+          throw new ApiError(400, 'CSV row missing required fields: day, startTime, endTime, subjectId, teacherId, courseId');
         }
-        results.push({ ...row, collegeId });
+        // optional: validate format of startTime/endTime here (HH:mm)
+        results.push({
+          day: row.day,
+          startTime: row.startTime,
+          endTime: row.endTime,
+          subjectId: parseInt(row.subjectId),
+          teacherId: parseInt(row.teacherId),
+          courseId: parseInt(row.courseId),
+          section: row.section || null,
+          validFrom: row.validFrom ? new Date(row.validFrom) : null,
+          validTo: row.validTo ? new Date(row.validTo) : null,
+          collegeId
+        });
       })
       .on('end', async () => {
         const t = await db.sequelize.transaction();
         try {
-          const timetables = await db.Timetable.bulkCreate(results, { transaction });
+          // use transaction variable t
+          const timetables = await db.Timetable.bulkCreate(results, { transaction: t });
           await t.commit();
           fs.unlink(filePath, err => { if (err) console.error('Failed to delete temp file:', err); });
           resolve(timetables);

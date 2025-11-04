@@ -3,7 +3,8 @@ module.exports = (sequelize, DataTypes) => {
   const Timetable = sequelize.define('Timetable', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     day: { type: DataTypes.STRING },
-    time: { type: DataTypes.STRING },
+    startTime: { type: DataTypes.STRING }, // format 'HH:mm'
+    endTime: { type: DataTypes.STRING },   // format 'HH:mm'
     subjectId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Subjects', key: 'id' } },
     teacherId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Teachers', key: 'id' } },
     courseId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Courses', key: 'id' } },
