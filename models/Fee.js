@@ -9,6 +9,8 @@ module.exports = (sequelize, DataTypes) => {
     dueDate: { type: DataTypes.DATE },
     paidAt: { type: DataTypes.DATE },
     collegeId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Colleges', key: 'id' } },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true }
   }, {
     timestamps: true,
     tableName: 'Fees'

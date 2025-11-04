@@ -7,6 +7,172 @@ const Razorpay = require('razorpay');
 const config = require('../config/razorpay');
 const rzp = new Razorpay({ key_id: config.key_id, key_secret: config.key_secret });
 
+
+exports.createClassFee = async (payload, createdByCollegeId) => {
+  const { courseId, amount, dueDate, description } = payload;
+  const t = await db.sequelize.transaction();
+  try {
+    const course = await db.Course.findOne({ where: { id: courseId, collegeId: createdByCollegeId }, transaction: t });
+    if (!course) throw ApiError.notFound('Course (class) not found or not in your college');
+
+    // find students in that course
+    const students = await db.Student.findAll({ where: { courseId }, transaction: t });
+    if (!students || students.length === 0) {
+      await t.rollback();
+      throw ApiError.badRequest('No students found in the selected class');
+    }
+
+    // create fees for each student
+    const feesPayload = students.map(s => ({
+      studentId: s.id,
+      courseId,
+      amount,
+      dueDate,
+      status: 'pending',
+      collegeId: createdByCollegeId,
+      description: description || `Fee for course ${course.name}`,
+    }));
+
+    const created = await db.Fee.bulkCreate(feesPayload, { transaction: t });
+    await t.commit();
+    return created;
+  } catch (err) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to create class fees: ${err.message}`);
+  }
+};
+
+exports.modifyClassFee = async (payload, modifiedByCollegeId) => {
+  const { courseId, amount, dueDate, status, force = false } = payload;
+  const t = await db.sequelize.transaction();
+  try {
+    const course = await db.Course.findOne({ where: { id: courseId, collegeId: modifiedByCollegeId }, transaction: t });
+    if (!course) throw ApiError.notFound('Course (class) not found or not in your college');
+
+    const where = { courseId, collegeId: modifiedByCollegeId };
+    if (!force) {
+      // don't change already paid fees unless force = true
+      where.status = ['pending', 'partial'];
+    }
+
+    // build update values
+    const updateValues = {};
+    if (amount !== undefined) updateValues.amount = amount;
+    if (dueDate !== undefined) updateValues.dueDate = dueDate;
+    if (status !== undefined) updateValues.status = status;
+
+    if (Object.keys(updateValues).length === 0) {
+      await t.rollback();
+      throw ApiError.badRequest('No update fields provided');
+    }
+
+    const [affectedCount] = await db.Fee.update(updateValues, { where, transaction: t });
+    await t.commit();
+    return { affectedCount };
+  } catch (err) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to modify class fees: ${err.message}`);
+  }
+};
+
+
+exports.modifyStudentFee = async (feeId, payload, actorCollegeId) => {
+  const t = await db.sequelize.transaction();
+  try {
+    const fee = await db.Fee.findOne({ where: { id: feeId }, transaction: t });
+    if (!fee) throw ApiError.notFound('Fee not found');
+
+    // ensure college matches if college-level operation
+    if (actorCollegeId && fee.collegeId !== actorCollegeId) {
+      throw ApiError.forbidden('Not allowed to modify fee of another college');
+    }
+
+    const allowed = {};
+    if (payload.amount !== undefined) allowed.amount = payload.amount;
+    if (payload.dueDate !== undefined) allowed.dueDate = payload.dueDate;
+    if (payload.status !== undefined) allowed.status = payload.status;
+    if (payload.note !== undefined) allowed.note = payload.note;
+
+    if (Object.keys(allowed).length === 0) throw ApiError.badRequest('No update fields provided');
+
+    await fee.update(allowed, { transaction: t });
+    await t.commit();
+    return fee;
+  } catch (err) {
+    await t.rollback();
+    throw ApiError.badRequest(`Failed to modify student fee: ${err.message}`);
+  }
+};
+
+
+exports.getStudentFeeHistory = async (studentId, requester) => {
+  // requester: { role, collegeId, parentId, userId } used for authorization checks
+  const student = await db.Student.findOne({
+    where: { id: studentId },
+    include: [
+      { model: db.Fee, include: [{ model: db.Course, attributes: ['id', 'name'] }] },
+      { model: db.Parent, attributes: ['id', 'name'] }
+    ]
+  });
+  if (!student) throw ApiError.notFound('Student not found');
+
+  // authorization: if requester.role === 'parent' ensure parentId matches
+  if (requester.role === 'parent') {
+    if (!requester.parentId || requester.parentId !== student.parentId) throw ApiError.forbidden('Not allowed');
+  }
+  if (requester.role === 'collegeadmin') {
+    if (requester.collegeId !== student.collegeId) throw ApiError.forbidden('Not allowed');
+  }
+
+  const fees = student.Fees || [];
+  return fees.map(f => ({
+    id: f.id,
+    amount: f.amount,
+    status: f.status,
+    dueDate: f.dueDate,
+    paidAt: f.paidAt,
+    courseId: f.courseId,
+    courseName: f.Course?.name || null,
+    createdAt: f.createdAt,
+    updatedAt: f.updatedAt,
+  }));
+};
+
+
+exports.getParentFeeHistory = async (parentId) => {
+  const parent = await db.Parent.findOne({
+    where: { id: parentId },
+    include: [
+      {
+        model: db.Student,
+        include: [
+          {
+            model: db.Fee,
+            include: [{ model: db.Course, attributes: ['id', 'name'] }]
+          }
+        ]
+      }
+    ]
+  });
+
+  if (!parent) throw ApiError.notFound('Parent not found');
+
+  return parent.Students.map(s => ({
+    studentId: s.id,
+    name: s.name,
+    rollNo: s.rollNo,
+    fees: s.Fees.map(f => ({
+      id: f.id,
+      amount: f.amount,
+      status: f.status,
+      dueDate: f.dueDate,
+      paidAt: f.paidAt,
+      course: f.Course?.name || null
+    }))
+  }));
+};
+
+
 exports.createFee = async (payload, collegeId) => {
   const t = await db.sequelize.transaction();
   try {
