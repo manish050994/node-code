@@ -207,3 +207,30 @@ exports.getStudentsProgress = async (parentId) => {
     }))
   }));
 };
+
+
+exports.getParentProfile = async (parentId) => {
+  const parent = await db.Parent.findOne({
+    where: { id: parentId },
+    include: [
+      {
+        model: db.User,
+        as: 'User',
+        attributes: ['loginId', 'email', 'name', 'role']
+      }
+    ]
+  });
+
+  if (!parent) throw ApiError.notFound("Parent not found");
+  return parent;
+};
+
+exports.updateParentProfile = async (parentId, payload, file) => {
+  const parent = await db.Parent.findOne({ where: { id: parentId } });
+  if (!parent) throw ApiError.notFound("Parent not found");
+
+  if (file) payload.profilePic = file.filename;
+  
+  await parent.update(payload);
+  return parent;
+};
