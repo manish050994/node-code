@@ -236,7 +236,7 @@ exports.updateParentProfile = async (parentId, payload, file) => {
   const parent = await db.Parent.findOne({ where: { id: parentId } });
   if (!parent) throw ApiError.notFound("Parent not found");
 
-  if (file) payload.profilePic = file.filename;
+  if (file) payload.profilePic = `parentProfile/${file.filename}`;
   
   await parent.update(payload);
   return parent;
