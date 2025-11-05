@@ -232,21 +232,12 @@ exports.getParentProfile = async (parentId, req) => {
 };
 
 
-exports.updateParentProfile = async (req, res, next) => {
-  try {
-    const parentId = req.user.parentId;
-    const updated = await parentService.updateParentProfile(parentId, req.body, req.file);
+exports.updateParentProfile = async (parentId, payload, file) => {
+  const parent = await db.Parent.findOne({ where: { id: parentId } });
+  if (!parent) throw ApiError.notFound("Parent not found");
 
-    const HOST = `${req.protocol}://${req.get('host')}`;
-    return res.success(
-      {
-        ...updated.toJSON(),
-        profilePicUrl: updated.profilePic ? `${HOST}/${updated.profilePic}` : null,
-      },
-      "Parent profile updated successfully"
-    );
-  } catch (err) {
-    next(err);
-  }
+  if (file) payload.profilePic = file.filename;
+  
+  await parent.update(payload);
+  return parent;
 };
-

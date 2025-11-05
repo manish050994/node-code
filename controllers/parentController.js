@@ -85,8 +85,17 @@ exports.updateParentProfile = async (req, res, next) => {
   try {
     const parentId = req.user.parentId;
     const updated = await parentService.updateParentProfile(parentId, req.body, req.file);
-    return res.success(updated, "Parent profile updated successfully");
+
+    const HOST = `${req.protocol}://${req.get('host')}`;
+    return res.success(
+      {
+        ...updated.toJSON(),
+        profilePicUrl: updated.profilePic ? `${HOST}/${updated.profilePic}` : null,
+      },
+      "Parent profile updated successfully"
+    );
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
+
