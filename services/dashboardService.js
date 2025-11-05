@@ -34,16 +34,48 @@ exports.getTeacherDashboard = async (teacherId) => {
 };
 
 exports.getStudentDashboard = async (studentId) => {
+  // Get the student with the course details
   const student = await db.Student.findOne({
     where: { id: studentId },
-    include: [{ model: db.Course, as: 'Course' }],
+    include: [{ model: db.Course, as: 'Course', attributes: ['id', 'name'] }],
   });
+
   if (!student) throw ApiError.notFound('Student not found');
-  const attendance = await db.Attendance.count({
+
+  // Attendance Count
+  const attendanceCount = await db.Attendance.count({
     where: { studentId, status: 'present' },
   });
-  return { course: student.Course, attendance };
+
+  // Marks / Grades
+  const grades = await db.Mark.findAll({
+    where: { studentId },
+    attributes: ['subjectId', 'marks'],
+    include: [
+      { model: db.Subject, as: 'Subject', attributes: ['name'] } // Optional: To show subject name
+    ],
+  });
+
+  // Fee status month-wise
+  const fees = await db.Fee.findAll({
+    where: { studentId },
+    attributes: ['amount', 'status', 'dueDate'],
+  });
+
+  const feeStatus = fees.map(fee => ({
+    month: fee.dueDate ? fee.dueDate.toLocaleString('default', { month: 'long' }) : 'N/A',
+    paid: fee.status === 'paid',
+    amount: fee.amount,
+  }));
+
+  return {
+    student,
+    attendance: attendanceCount,
+    grades,
+    feeStatus,
+  };
 };
+
 
 exports.getParentDashboard = async (parentId) => {
   // Fetch all students for the parent
