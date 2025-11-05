@@ -48,13 +48,20 @@ exports.getStudentDashboard = async (studentId) => {
   });
 
   // Marks / Grades
-  const grades = await db.Mark.findAll({
+   const gradesData = await db.Mark.findAll({
     where: { studentId },
     attributes: ['subjectId', 'marks'],
     include: [
-      { model: db.Subject, as: 'Subject', attributes: ['name'] } // Optional: To show subject name
+      { model: db.Subject, as: 'Subject', attributes: ['name'] }
     ],
   });
+
+  // Convert to desired structure
+  const grades = gradesData.map(mark => ({
+    subjectId: mark.subjectId,
+    marks: mark.marks,
+    Subjectname: mark.Subject ? mark.Subject.name : null
+  }));
 
   // Fee status month-wise
   const fees = await db.Fee.findAll({
@@ -96,14 +103,20 @@ exports.getParentDashboard = async (parentId) => {
         where: { studentId: student.id, status: 'present' },
       });
 
-      // Fetch marks
-      const grades = await db.Mark.findAll({
-        where: { studentId: student.id },
-        attributes: ['subjectId', 'marks'],
-        include: [
-      { model: db.Subject, as: 'Subject', attributes: ['name'] } // Optional: To show subject name
+       const gradesData = await db.Mark.findAll({
+    where: { studentId },
+    attributes: ['subjectId', 'marks'],
+    include: [
+      { model: db.Subject, as: 'Subject', attributes: ['name'] }
     ],
-      });
+  });
+
+  // Convert to desired structure
+  const grades = gradesData.map(mark => ({
+    subjectId: mark.subjectId,
+    marks: mark.marks,
+    Subjectname: mark.Subject ? mark.Subject.name : null
+  }));
 
       // Fetch fees and map to month-wise status (assuming dueDate is the fee month)
       const fees = await db.Fee.findAll({
