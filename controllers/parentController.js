@@ -73,12 +73,13 @@ exports.getStudentsProgress = async (req, res, next) => {
 exports.getParentProfile = async (req, res, next) => {
   try {
     const parentId = req.user.parentId;
-    const profile = await parentService.getParentProfile(parentId);
+    const profile = await parentService.getParentProfile(parentId, req);
     return res.success(profile, "Parent profile fetched");
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
+
 
 exports.updateParentProfile = async (req, res, next) => {
   try {

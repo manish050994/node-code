@@ -209,28 +209,44 @@ exports.getStudentsProgress = async (parentId) => {
 };
 
 
-exports.getParentProfile = async (parentId) => {
+exports.getParentProfile = async (parentId, req) => {
   const parent = await db.Parent.findOne({
     where: { id: parentId },
     include: [
       {
         model: db.User,
         as: 'User',
-        attributes: ['loginId', 'email', 'name', 'role']
+        attributes: ['id', 'loginId', 'email', 'role']
       }
     ]
   });
 
   if (!parent) throw ApiError.notFound("Parent not found");
-  return parent;
+
+  const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
+
+  const data = parent.toJSON();
+  data.profilePicUrl = parent.profilePic ? `${HOST}/${parent.profilePic}` : null;
+
+  return data;
 };
 
-exports.updateParentProfile = async (parentId, payload, file) => {
-  const parent = await db.Parent.findOne({ where: { id: parentId } });
-  if (!parent) throw ApiError.notFound("Parent not found");
 
-  if (file) payload.profilePic = file.filename;
-  
-  await parent.update(payload);
-  return parent;
+exports.updateParentProfile = async (req, res, next) => {
+  try {
+    const parentId = req.user.parentId;
+    const updated = await parentService.updateParentProfile(parentId, req.body, req.file);
+
+    const HOST = `${req.protocol}://${req.get('host')}`;
+    return res.success(
+      {
+        ...updated.toJSON(),
+        profilePicUrl: updated.profilePic ? `${HOST}/${updated.profilePic}` : null,
+      },
+      "Parent profile updated successfully"
+    );
+  } catch (err) {
+    next(err);
+  }
 };
+
