@@ -100,6 +100,9 @@ exports.getParentDashboard = async (parentId) => {
       const grades = await db.Mark.findAll({
         where: { studentId: student.id },
         attributes: ['subjectId', 'marks'],
+        include: [
+      { model: db.Subject, as: 'Subject', attributes: ['name'] } // Optional: To show subject name
+    ],
       });
 
       // Fetch fees and map to month-wise status (assuming dueDate is the fee month)
