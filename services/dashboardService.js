@@ -104,7 +104,7 @@ exports.getParentDashboard = async (parentId) => {
       });
 
        const gradesData = await db.Mark.findAll({
-    where: { studentId },
+    where: { studentId: student.id },
     attributes: ['subjectId', 'marks'],
     include: [
       { model: db.Subject, as: 'Subject', attributes: ['name'] }
