@@ -65,7 +65,10 @@ exports.getMarksByCourse = async (req, res) => {
     });
 
     res.status(200).json({
-      data: result.marks,
+      data: {
+        marks: result.marks,
+        assignment: result.assignment,
+      },
       total: result.total,
       page: result.page,
       limit: result.limit,
