@@ -81,12 +81,12 @@ exports.getMarks = async (filter, user, { page = 1, limit = 10 }) => {
 exports.getMarksByCourse = async (courseId, collegeId, options = { page: 1, limit: 10 }) => {
   const { page, limit } = options;
 
-  // Fetch all marks for students in the given course
+  // Fetch marks
   const { rows, count } = await db.Mark.findAndCountAll({
     include: [
       {
         model: db.Student,
-        where: { courseId, collegeId },
+        where: { courseId, collegeId }, // only students in this course
         attributes: ['id', 'name', 'rollNo'],
       },
       { model: db.Subject, attributes: ['id', 'name'] },
@@ -98,31 +98,32 @@ exports.getMarksByCourse = async (courseId, collegeId, options = { page: 1, limi
     order: [['createdAt', 'DESC']],
   });
 
-  // Prepare arrays for exams and assignments
-  const examMarks = [];
-  const assignmentMarks = [];
-
-  // Add percentage and categorize
-  rows.forEach(m => {
+  // Add percentage to each mark
+  const marksWithPercentage = rows.map((m) => {
     const mark = m.toJSON();
     mark.percentage =
       mark.totalMarks && mark.marks != null
         ? ((mark.marks / mark.totalMarks) * 100).toFixed(2)
         : null;
-
-    if (mark.examId && mark.Exam) {
-      examMarks.push(mark);
-    } else if (mark.assignmentId && mark.Assignment) {
-      assignmentMarks.push(mark);
-    }
+    return mark;
   });
 
+  // Split into exam and assignment marks
+  const examMarks = marksWithPercentage.filter((m) => m.examId !== null);
+  const assignmentMarks = marksWithPercentage.filter((m) => m.assignmentId !== null);
+
+  // Return new structured response
   return {
-    marks: examMarks,           // exam-based marks
-    assignment: assignmentMarks, // assignment-based marks
+    data: {
+      marks: examMarks,
+      assignment: assignmentMarks,
+    },
     total: count,
     page,
     limit,
+    message: `Marks for course ${courseId}`,
+    error: null,
+    status: 200,
   };
 };
 
