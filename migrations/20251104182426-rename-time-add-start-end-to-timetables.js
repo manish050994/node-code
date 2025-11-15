@@ -20,33 +20,32 @@ module.exports = {
       });
     }
 
-    // 3) Copy 'time' → 'startTime' only if both columns exist
+    // 3) Copy `time` → `startTime` (if both exist)
     if (table.time && table.startTime) {
-      if (queryInterface.sequelize.getDialect() === 'postgres') {
-        await queryInterface.sequelize.query(`
-          UPDATE "Timetables"
-          SET "startTime" = "time"
-          WHERE "time" IS NOT NULL AND "startTime" IS NULL;
-        `);
-      } else {
-        await queryInterface.sequelize.query(`
-          UPDATE Timetables
-          SET startTime = time
-          WHERE time IS NOT NULL AND startTime IS NULL;
-        `);
-      }
+      await queryInterface.sequelize.query(`
+        UPDATE "Timetables"
+        SET "startTime" = "time"
+        WHERE "time" IS NOT NULL AND "startTime" IS NULL;
+      `);
     }
 
-    // 4) Make startTime NOT NULL only if column exists
-    const updatedTable = await queryInterface.describeTable('Timetables');
-    if (updatedTable.startTime) {
+    // 4) Try to set startTime NOT NULL only if no nulls exist
+    const [{ count }] = await queryInterface.sequelize.query(`
+      SELECT COUNT(*)::int AS count 
+      FROM "Timetables"
+      WHERE "startTime" IS NULL;
+    `, { type: queryInterface.sequelize.QueryTypes.SELECT });
+
+    if (count === 0) {
       await queryInterface.changeColumn('Timetables', 'startTime', {
         type: Sequelize.STRING,
         allowNull: false,
       });
+    } else {
+      console.log(`Skipping NOT NULL constraint on startTime — ${count} null rows exist`);
     }
 
-    // 5) Remove old 'time' column only if it exists
+    // 5) Drop old `time` column if exists
     if (table.time) {
       await queryInterface.removeColumn('Timetables', 'time');
     }
@@ -55,7 +54,7 @@ module.exports = {
   async down(queryInterface, Sequelize) {
     const table = await queryInterface.describeTable('Timetables');
 
-    // 1) Recreate time column if missing
+    // Restore time column
     if (!table.time) {
       await queryInterface.addColumn('Timetables', 'time', {
         type: Sequelize.STRING,
@@ -63,30 +62,20 @@ module.exports = {
       });
     }
 
-    // 2) Copy back startTime → time
+    // Copy back startTime → time
     if (table.startTime) {
-      if (queryInterface.sequelize.getDialect() === 'postgres') {
-        await queryInterface.sequelize.query(`
-          UPDATE "Timetables"
-          SET "time" = "startTime"
-          WHERE "startTime" IS NOT NULL;
-        `);
-      } else {
-        await queryInterface.sequelize.query(`
-          UPDATE Timetables
-          SET time = startTime
-          WHERE startTime IS NOT NULL;
-        `);
-      }
+      await queryInterface.sequelize.query(`
+        UPDATE "Timetables"
+        SET "time" = "startTime"
+        WHERE "startTime" IS NOT NULL;
+      `);
     }
 
-    // 3) Remove startTime and endTime only if they exist
-    const updated = await queryInterface.describeTable('Timetables');
-
-    if (updated.startTime) {
+    // Remove new columns
+    if (table.startTime) {
       await queryInterface.removeColumn('Timetables', 'startTime');
     }
-    if (updated.endTime) {
+    if (table.endTime) {
       await queryInterface.removeColumn('Timetables', 'endTime');
     }
   }
