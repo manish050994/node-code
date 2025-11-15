@@ -60,6 +60,7 @@ exports.createStudent = async ({ payload, creator }) => {
         year: studentData.year || null,
         section: studentData.section || null,
         email: studentData.email.toLowerCase(),
+        phone: studentData.phone || null,
         gender: studentData.gender || null,
         motherName: studentData.motherName || null,
         fatherName: studentData.fatherName || null,
@@ -209,6 +210,7 @@ exports.bulkCreateStudents = async (filePath, collegeId) => {
           year: row.year || null,
           section: row.section || null,
           email: row.email.toLowerCase(),
+          phone: row.phone || null,
           gender: row.gender || null,
           motherName: row.motherName || null,
           fatherName: row.fatherName || null,
@@ -350,6 +352,7 @@ exports.updateStudent = async ({ id, payload, req }) => {
       year: payload.year !== undefined ? payload.year : student.year,
       section: payload.section || student.section,
       email: payload.email ? payload.email.toLowerCase() : student.email,
+      phone: payload.phone !== undefined ? payload.phone : student.phone,
       gender: payload.gender || student.gender,
       motherName: payload.motherName || student.motherName,
       fatherName: payload.fatherName || student.fatherName,
@@ -421,7 +424,7 @@ exports.updateOwnProfile = async ({ id, payload, req }) => {
     const HOST = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 3002}`;
 
     // Allowed fields for self-update
-    const allowedFields = ['name', 'email', 'contact', 'address', 'gender', 'motherName', 'fatherName', 'category'];
+    const allowedFields = ['name', 'email', 'contact', 'address', 'gender', 'motherName', 'fatherName', 'category', 'phone'];
 
     const updates = {};
     allowedFields.forEach(field => {
@@ -481,6 +484,6 @@ exports.getIdCardHtml = async (id) => {
     include: [{ model: db.Course, as: 'Course' }]
   });
   if (!student) throw ApiError.notFound('Student not found');
-  return `Name: ${student.name}\nRoll No: ${student.rollNo}\nCourse: ${student.Course.name}\nCollege ID: ${student.collegeId}`;
+  return `Name: ${student.name}\nRoll No: ${student.rollNo}\nPhone: ${student.phone || '-'}\nCourse: ${student.Course.name}\nCollege ID: ${student.collegeId}`;
 };
 

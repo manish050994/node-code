@@ -3,6 +3,7 @@ module.exports = (sequelize, DataTypes) => {
   const Student = sequelize.define('Student', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     name: { type: DataTypes.STRING, allowNull: false },
+    phone: { type: DataTypes.STRING, allowNull: true },
     rollNo: { type: DataTypes.STRING, allowNull: false, unique: true },
     courseId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Courses', key: 'id' } },
     year: { type: DataTypes.INTEGER },

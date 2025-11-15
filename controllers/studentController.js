@@ -25,6 +25,7 @@ exports.getSampleCsv = async (req, res, next) => {
         year: 1,
         section: 'A',
         email: 'john.doe22@example.com',
+        phone: '9876543210',
         password: 'pass123',
         gender: 'male', // New
         motherName: 'Jane Doe', // New
@@ -43,6 +44,7 @@ exports.getSampleCsv = async (req, res, next) => {
         year: 1,
         section: 'A',
         email: 'jane.roe33@example.com',
+        phone: '9876543210',
         password: 'pass123',
         gender: 'male', // New
         motherName: 'Jane Roe', // New
@@ -58,7 +60,7 @@ exports.getSampleCsv = async (req, res, next) => {
 
     const columns = [
       'name', 'rollNo', 'courseId', 'year', 'section', 'email', 'password',
-      'gender', 'motherName', 'fatherName', 'category', // New fields
+      'gender', 'motherName', 'fatherName', 'category', 'phone', // New fields
       'parentName', 'parentEmail', 'parentPhone', 'parentPassword', 'parentGender'
     ];
 
